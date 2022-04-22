@@ -17,15 +17,7 @@ function doStuff() {
   chrome.identity.getAuthToken(
     {'interactive': true},
     function(token) {
-      fetch(
-	'https://gmail.googleapis.com/gmail/v1/users/me/profile',
-	{
-	  method: 'GET',
-	  headers: {
-	    authorization: `Bearer ${token}`
-	  }
-	}
-      ).then(response => response.json()).then(data => console.log(data))
+      sendQuery('users/me/profile', 'GET', token, data => console.log(data));
     }
   )
 }
