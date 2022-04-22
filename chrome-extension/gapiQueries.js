@@ -1,4 +1,4 @@
-function sendQuery(path, requestMethod, body, authToken, callbackFn) {
+async function sendQuery(path, requestMethod, body, authToken) {
   var requestContent = {
     method: requestMethod,
     headers: {
@@ -9,37 +9,42 @@ function sendQuery(path, requestMethod, body, authToken, callbackFn) {
   if (body.length) {
     requestContent.body = JSON.stringify(body)
   }
-  fetch(
+
+  const response = await fetch(
     'https://gmail.googleapis.com/gmail/v1/users/me/' + path,
     requestContent
-  ).then(response => response.json()).then(data => callbackFn(data))
-}
-
-function sendGet(path, params, authToken, callbackFn) {
-  pathWithParams = path + '?' + ( new URLSearchParams( params ) ).toString();
-  sendQuery(pathWithParams, 'GET', {}, authToken, callbackFn);
-}
-
-function mapMessageIDs(authToken, messageOperationFn) {
-  sendGet(
-    'messages',
-    {maxResults: 15},
-    authToken,
-    function (responsePayload) {
-      for (var i = 0; i < responsePayload.messages.length; i++) {
-        const messageId = responsePayload.messages[i].id;
-        sendGet(`messages/${messageId}`, {}, authToken, printMessageContent);
-      }
-    }
   );
+  // TODO handle errors
+
+  return response.json();
 }
+
+
+async function sendGet(path, params, authToken) {
+  pathWithParams = path + '?' + (new URLSearchParams(params)).toString();
+  return sendQuery(pathWithParams, 'GET', {}, authToken);
+}
+
+
+async function getMessages(authToken) {
+  //const parsedMessages = [];
+  const messageIDs = await sendGet('messages', {maxResults: 5}, authToken);
+  for (var i = 0; i < messageIDs.messages.length; i++) {
+    const messageId = messageIDs.messages[i].id;
+    const messageResponse = await sendGet(`messages/${messageId}`, {}, authToken);
+    const message = parseMessage(messageResponse);
+    //parsedMessages[i] = message;
+  }
+}
+
 
 function decodeBody(body) {
   return atob(body.replace(/-/g, '+').replace(/_/g, '/'))
 }
 
-function printMessageContent(message) {
-  // MessagePayload looks like https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
+
+function parseMessage(message) {
+  // message looks like https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
   console.log()
   console.log('------------------------------')
   console.log(message);
@@ -66,8 +71,4 @@ function printMessageContent(message) {
     }
   }
 
-}
-
-function messagesTemp(authToken) {
-  mapMessageIDs(authToken, printMessageContent)
 }

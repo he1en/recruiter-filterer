@@ -12,16 +12,14 @@ window.onload = function() {
   document.querySelector('button').addEventListener('click', doStuff)
 };
 
-function doStuff() {
+async function doStuff() {
   console.log('button clicked')
   chrome.identity.getAuthToken(
     {'interactive': true},
-    function(token) {
-      messagesTemp(token);
+    async function (authToken) {
+      const messages = await getMessages(authToken);
+      // const messageIDsToLabel = filterMessages(messages);
+      // labelMessages(messageIDsToLabel);
     }
-  )
+  );
 }
-
-
-//function authorize_gmail() {
-//    gapi.auth.authorize
