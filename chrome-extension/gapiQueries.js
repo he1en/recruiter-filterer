@@ -17,7 +17,6 @@ function sendQuery(path, requestMethod, body, authToken, callbackFn) {
 
 function sendGet(path, params, authToken, callbackFn) {
   pathWithParams = path + '?' + ( new URLSearchParams( params ) ).toString();
-  console.log(pathWithParams)
   sendQuery(pathWithParams, 'GET', {}, authToken, callbackFn);
 }
 
@@ -27,8 +26,6 @@ function mapMessageIDs(authToken, messageOperationFn) {
     {maxResults: 3},
     authToken,
     function (responsePayload) {
-      console.log('got list messages response')
-      console.log(responsePayload)
       for (var i = 0; i < 3; i++) {
         const messageId = responsePayload.messages[i].id;
         sendGet(`messages/${messageId}`, {}, authToken, printMessageContent);
@@ -38,7 +35,6 @@ function mapMessageIDs(authToken, messageOperationFn) {
 }
 
 function decodeBody(body) {
-  console.log(body)
   return atob(body.replace(/-/g, '+').replace(/_/g, '/'))
 }
 
