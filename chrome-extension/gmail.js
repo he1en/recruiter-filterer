@@ -17,8 +17,10 @@ async function doStuff() {
   chrome.identity.getAuthToken(
     {'interactive': true},
     async function (authToken) {
+      // todo rework for better parallelization
       const messages = await getMessages(authToken);
-      // const messageIDsToLabel = filterMessages(messages);
+      const messageIDsToLabel = findRecruitingMessages(messages);
+      console.log(messageIDsToLabel);
       // labelMessages(messageIDsToLabel);
     }
   );

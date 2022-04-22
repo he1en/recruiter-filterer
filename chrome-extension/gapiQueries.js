@@ -27,14 +27,14 @@ async function sendGet(path, params, authToken) {
 
 
 async function getMessages(authToken) {
-  //const parsedMessages = [];
-  const messageIDs = await sendGet('messages', {maxResults: 5}, authToken);
+  const parsedMessages = [];
+  const messageIDs = await sendGet('messages', {maxResults: 15}, authToken);
   for (var i = 0; i < messageIDs.messages.length; i++) {
     const messageId = messageIDs.messages[i].id;
     const messageResponse = await sendGet(`messages/${messageId}`, {}, authToken);
-    const message = parseMessage(messageResponse);
-    //parsedMessages[i] = message;
+    parsedMessages.push(parseMessage(messageResponse));
   }
+  return parsedMessages;
 }
 
 
@@ -81,11 +81,7 @@ class Message {
 
 function parseMessage(message) {
   // message looks like https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
-  console.log()
-  console.log('------------------------------')
-  console.log(message);
   const parsedMessage = new Message(message.id, message.payload);
-  console.log(parsedMessage.getSubject());
-  console.log(parsedMessage.htmlBody);
-  console.log(parsedMessage.plainTextBody);
+  console.log('parsed ' + parsedMessage.getSubject());
+  return parsedMessage;
 }
