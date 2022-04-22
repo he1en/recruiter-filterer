@@ -1,4 +1,4 @@
-console.log('hello gmail')
+console.log('hello from gmail.js')
 
 //oauth2 auth
 //chrome.identity.getAuthToken(
@@ -13,11 +13,11 @@ window.onload = function() {
 };
 
 function doStuff() {
-  console.log('dostuff')
+  console.log('button clicked')
   chrome.identity.getAuthToken(
     {'interactive': true},
     function(token) {
-      sendQuery('users/me/profile', 'GET', token, data => console.log(data));
+      messagesTemp(token);
     }
   )
 }
