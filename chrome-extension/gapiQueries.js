@@ -43,32 +43,49 @@ function decodeBody(body) {
 }
 
 
+class Message {
+  constructor(id, payload) {
+    this.id = id;
+    this.headers = payload.headers;
+
+    if (payload.mimeType.includes("multipart")) {
+      const parts = payload.parts;
+      for (var i = 0; i < parts.length; i++) {
+        this.parsePart(parts[i]);
+      }
+    } else {
+      this.parsePart(payload);
+    }
+  }
+
+  parsePart(part) {
+    if (part.mimeType.includes("html")) {
+      this.htmlBody = decodeBody(part.body.data);
+    } else if (part.mimeType.includes("plain")) {
+      this.plainTextBody = decodeBody(part.body.data);
+    } else {
+      console.log("noncorming part in message id " + this.id);
+      console.log(part);
+    }
+  }
+
+  getSubject() {
+    for (var i = 0; i < this.headers.length; i++) {
+      if (this.headers[i].name == 'Subject') {
+        return this.headers[i].value;
+      }
+    }
+  }
+}
+
+
 function parseMessage(message) {
   // message looks like https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
   console.log()
   console.log('------------------------------')
   console.log(message);
-  const headers = message.payload.headers;
-  for (var j = 0; j < headers.length; j++) {
-    if (headers[j].name == 'Subject') {
-      console.log(headers[j].value)
-    }
-    //console.log(headers[j].name)
-  }
-
-  // TODO change this to recurse only if mimeType is multipart/something
-  if (message.payload.body.size > 0) {
-    console.log(decodeBody(message.payload.body.data));
-  }
-
-
-  if ('parts' in message.payload) {
-    const parts = message.payload.parts;
-    for (var k = 0; k < parts.length; k++) {
-      console.log(parts[k].mimeType)
-      //console.log(Utilities.base64Decode(parts[k].body.data))
-      console.log(decodeBody(parts[k].body.data));
-    }
-  }
-
+  const parsedMessage = new Message(message.id, message.payload);
+  console.log(parsedMessage.getSubject());
+  console.log(parsedMessage.htmlBody);
+  console.log(parsedMessage.plainTextBody);
 }
