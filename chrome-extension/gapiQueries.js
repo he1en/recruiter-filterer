@@ -23,10 +23,10 @@ function sendGet(path, params, authToken, callbackFn) {
 function mapMessageIDs(authToken, messageOperationFn) {
   sendGet(
     'messages',
-    {maxResults: 3},
+    {maxResults: 15},
     authToken,
     function (responsePayload) {
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < responsePayload.messages.length; i++) {
         const messageId = responsePayload.messages[i].id;
         sendGet(`messages/${messageId}`, {}, authToken, printMessageContent);
       }
@@ -50,12 +50,15 @@ function printMessageContent(message) {
     }
     //console.log(headers[j].name)
   }
+
+  // TODO change this to recurse only if mimeType is multipart/something
   if (message.payload.body.size > 0) {
     console.log(decodeBody(message.payload.body.data));
   }
 
-  const parts = message.payload.parts;
-  if (parts !== undefined) {
+
+  if ('parts' in message.payload) {
+    const parts = message.payload.parts;
     for (var k = 0; k < parts.length; k++) {
       console.log(parts[k].mimeType)
       //console.log(Utilities.base64Decode(parts[k].body.data))
