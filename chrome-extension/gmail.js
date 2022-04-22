@@ -20,7 +20,6 @@ async function doStuff() {
       // todo rework for better parallelization
       const messages = await getMessages(authToken);
       const messageIDsToLabel = findRecruitingMessages(messages);
-      console.log(messageIDsToLabel);
       // labelMessages(messageIDsToLabel);
     }
   );

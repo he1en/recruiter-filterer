@@ -3,10 +3,16 @@
 function findRecruitingMessages(messages) {
   const idsToReturn = [];
   for (var i = 0; i < messages.length; i++) {
-    if (isRecruiting(messages[i])) {
-      idsToReturn.push(messages[i].id)
-      console.log(messages[i].getSubject() + ' is recruiting')
+    try {
+      if (isRecruiting(messages[i])) {
+        idsToReturn.push(messages[i].id)
+        console.log(messages[i].getSubject() + ' IS RECRUITING')
+      }
+    } catch (err) {
+      console.log(`error in deciding message [${messages[i].getSubject()}]:`);
+      console.log(err)
     }
+
   }
   return idsToReturn;
 }
