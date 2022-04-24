@@ -6,7 +6,7 @@ async function sendQuery(path, requestMethod, body, authToken) {
       'Content-Type': 'application/json'
     }
   }
-  if (body.length) {
+  if (body !== null) {
     requestContent.body = JSON.stringify(body)
   }
 
@@ -22,7 +22,11 @@ async function sendQuery(path, requestMethod, body, authToken) {
 
 async function sendGet(path, params, authToken) {
   pathWithParams = path + '?' + (new URLSearchParams(params)).toString();
-  return sendQuery(pathWithParams, 'GET', {}, authToken);
+  return sendQuery(pathWithParams, 'GET', null, authToken);
+}
+
+async function sendPost(path, body, authToken) {
+  return sendQuery(path, 'POST', body, authToken);
 }
 
 
@@ -39,7 +43,7 @@ async function getMessages(authToken) {
 
 
 function decodeBody(body) {
-  return atob(body.replace(/-/g, '+').replace(/_/g, '/'))
+  return atob(body.replace(/-/g, '+').replace(/_/g, '/'));
 }
 
 
@@ -84,4 +88,48 @@ function parseMessage(message) {
   const parsedMessage = new Message(message.id, message.payload);
   console.log('parsed ' + parsedMessage.getSubject());
   return parsedMessage;
+}
+
+
+async function labelMessages(messageIDs, labelName, authToken) {
+  const requestBody = {
+    ids: messageIDs,
+    addLabelIDs: []
+  };
+  const response = sendPost("messages/batchModify", requestBody, authToken);
+  // todo check response
+  console.log('label response');
+  console.log(response);
+}
+
+async function getLabelID(labelName, authToken) {
+  const response = await sendGet("labels", {}, authToken);
+  console.log('get labels response');
+  console.log(response);
+  // todo if has more labels
+  for (var i = 0; i < response.labels.length; i++) {
+    if (response.labels[i].name.toLowerCase() == labelName.toLowerCase()) {
+      console.log('returning id ' + response.labels[i].id)
+      return response.labels[i].id;
+    }
+  }
+  return null;
+}
+
+async function createLabel(labelName, authToken) {
+  const requestBody = {name: labelName};
+  const response = await sendPost("labels", requestBody, authToken);
+  console.log('create labels response');
+  console.log(response);
+  console.log('new id is ' + response.id)
+  return response.id;
+}
+
+async function getOrCreateLabel(labelName, authToken) {
+  const existingLabelID = await getLabelID(labelName, authToken);
+  if (existingLabelID) {
+    return existingLabelID;
+  }
+  console.log('Creating new gmail label for your recruiting messages.')
+  return createLabel(labelName, authToken);
 }
