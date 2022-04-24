@@ -104,12 +104,9 @@ async function labelMessages(messageIDs, labelName, authToken) {
 
 async function getLabelID(labelName, authToken) {
   const response = await sendGet("labels", {}, authToken);
-  console.log('get labels response');
-  console.log(response);
   // todo if has more labels
   for (var i = 0; i < response.labels.length; i++) {
     if (response.labels[i].name.toLowerCase() == labelName.toLowerCase()) {
-      console.log('returning id ' + response.labels[i].id)
       return response.labels[i].id;
     }
   }
@@ -119,9 +116,6 @@ async function getLabelID(labelName, authToken) {
 async function createLabel(labelName, authToken) {
   const requestBody = {name: labelName};
   const response = await sendPost("labels", requestBody, authToken);
-  console.log('create labels response');
-  console.log(response);
-  console.log('new id is ' + response.id)
   return response.id;
 }
 
