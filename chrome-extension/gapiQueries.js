@@ -15,7 +15,7 @@ async function sendQuery(path, requestMethod, body, authToken) {
     requestContent
   );
   // TODO handle errors
-
+  console.log(response);
   return response.json();
 }
 
@@ -32,7 +32,7 @@ async function sendPost(path, body, authToken) {
 
 async function getMessages(authToken) {
   const parsedMessages = [];
-  const messageIDs = await sendGet('messages', {maxResults: 15}, authToken);
+  const messageIDs = await sendGet('messages', {maxResults: 20}, authToken);
   for (var i = 0; i < messageIDs.messages.length; i++) {
     const messageId = messageIDs.messages[i].id;
     const messageResponse = await sendGet(`messages/${messageId}`, {}, authToken);
@@ -91,12 +91,13 @@ function parseMessage(message) {
 }
 
 
-async function labelMessages(messageIDs, labelName, authToken) {
+async function labelMessages(messageIDs, labelID, authToken) {
   const requestBody = {
     ids: messageIDs,
-    addLabelIDs: []
+    addLabelIds: [labelID]
   };
-  const response = sendPost("messages/batchModify", requestBody, authToken);
+  console.log(requestBody);
+  const response = await sendPost("messages/batchModify", requestBody, authToken);
   // todo check response
   console.log('label response');
   console.log(response);
