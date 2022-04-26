@@ -1,3 +1,5 @@
-venv/
+.env
+
 chrome-extension.zip
 example_messages/
+training_data/

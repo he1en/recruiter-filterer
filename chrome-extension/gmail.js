@@ -11,11 +11,12 @@ async function doStuff() {
   chrome.identity.getAuthToken(
     {'interactive': true},
     async function (authToken) {
-      // todo create label if doesn't exist already
+      console.log(authToken);
+
       const labelID = await getOrCreateLabel(LABELNAME, authToken);
 
       // todo rework for better parallelization over messages
-      const messages = await getMessages(authToken);
+      const messages = await getMessages(authToken, 10);
       const messageIDsToLabel = findRecruitingMessages(messages);
       labelMessages(messageIDsToLabel, labelID, authToken);
     }

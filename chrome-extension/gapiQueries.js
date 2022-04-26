@@ -30,13 +30,13 @@ async function sendPost(path, body, authToken) {
 }
 
 
-async function getMessages(authToken) {
+async function getMessages(authToken, maxMessages) {
   const parsedMessages = [];
-  const messageIDs = await sendGet('messages', {maxResults: 20}, authToken);
+  const messageIDs = await sendGet('messages', {maxResults: maxMessages}, authToken);
   for (var i = 0; i < messageIDs.messages.length; i++) {
     const messageId = messageIDs.messages[i].id;
     const messageResponse = await sendGet(`messages/${messageId}`, {}, authToken);
-    parsedMessages.push(parseMessage(messageResponse));
+    parsedMessages.push(new Message(messageResponse.id, messageResponse.payload));
   }
   return parsedMessages;
 }
@@ -83,14 +83,6 @@ class Message {
 }
 
 
-function parseMessage(message) {
-  // message looks like https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
-  const parsedMessage = new Message(message.id, message.payload);
-  console.log('parsed ' + parsedMessage.getSubject());
-  return parsedMessage;
-}
-
-
 async function labelMessages(messageIDs, labelID, authToken) {
   const requestBody = {
     ids: messageIDs,
@@ -125,6 +117,13 @@ async function getOrCreateLabel(labelName, authToken) {
   if (existingLabelID) {
     return existingLabelID;
   }
-  console.log('Creating new gmail label for your recruiting messages.')
+  console.log('Creating new gmail label for your recruiting messages.');
   return createLabel(labelName, authToken);
 }
+
+// todo this logs an error in browser
+module.exports = {
+  Message,
+  getMessages,
+  getOrCreateLabel
+};
