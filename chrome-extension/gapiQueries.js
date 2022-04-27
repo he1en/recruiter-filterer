@@ -15,7 +15,6 @@ async function sendQuery(path, requestMethod, body, authToken) {
     requestContent
   );
   // TODO handle errors
-  console.log(response);
   return response.json();
 }
 
@@ -31,55 +30,15 @@ async function sendPost(path, body, authToken) {
 
 
 async function getMessages(authToken, maxMessages) {
-  const parsedMessages = [];
-  const messageIDs = await sendGet('messages', {maxResults: maxMessages}, authToken);
-  for (var i = 0; i < messageIDs.messages.length; i++) {
-    const messageId = messageIDs.messages[i].id;
-    const messageResponse = await sendGet(`messages/${messageId}`, {}, authToken);
-    parsedMessages.push(new Message(messageResponse.id, messageResponse.payload));
-  }
-  return parsedMessages;
-}
+  // return value is array of https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
+  const messagesResponse = await sendGet('messages', {maxResults: maxMessages}, authToken);
+  const messages = messagesResponse.messages;  // these are {id: <string>, threadID: <string>} objects
 
-
-function decodeBody(body) {
-  return atob(body.replace(/-/g, '+').replace(/_/g, '/'));
-}
-
-
-class Message {
-  constructor(id, payload) {
-    this.id = id;
-    this.headers = payload.headers;
-
-    if (payload.mimeType.includes("multipart")) {
-      const parts = payload.parts;
-      for (var i = 0; i < parts.length; i++) {
-        this.parsePart(parts[i]);
-      }
-    } else {
-      this.parsePart(payload);
-    }
-  }
-
-  parsePart(part) {
-    if (part.mimeType.includes("html")) {
-      this.htmlBody = decodeBody(part.body.data);
-    } else if (part.mimeType.includes("plain")) {
-      this.plainTextBody = decodeBody(part.body.data);
-    } else {
-      console.log("noncorming part in message id " + this.id);
-      console.log(part);
-    }
-  }
-
-  getSubject() {
-    for (var i = 0; i < this.headers.length; i++) {
-      if (this.headers[i].name == 'Subject') {
-        return this.headers[i].value;
-      }
-    }
-  }
+  // todo check concurrency
+  const messagePromises = messages.map(async function(message) {
+    return await sendGet(`messages/${message.id}`, {}, authToken);
+  });
+  return await Promise.all(messagePromises);
 }
 
 
@@ -88,12 +47,10 @@ async function labelMessages(messageIDs, labelID, authToken) {
     ids: messageIDs,
     addLabelIds: [labelID]
   };
-  console.log(requestBody);
   const response = await sendPost("messages/batchModify", requestBody, authToken);
   // todo check response
-  console.log('label response');
-  console.log(response);
 }
+
 
 async function getLabelID(labelName, authToken) {
   const response = await sendGet("labels", {}, authToken);
@@ -106,24 +63,25 @@ async function getLabelID(labelName, authToken) {
   return null;
 }
 
+
 async function createLabel(labelName, authToken) {
   const requestBody = {name: labelName};
   const response = await sendPost("labels", requestBody, authToken);
   return response.id;
 }
 
+
 async function getOrCreateLabel(labelName, authToken) {
   const existingLabelID = await getLabelID(labelName, authToken);
   if (existingLabelID) {
     return existingLabelID;
   }
-  console.log('Creating new gmail label for your recruiting messages.');
   return createLabel(labelName, authToken);
 }
 
 // todo this logs an error in browser
 module.exports = {
-  Message,
   getMessages,
-  getOrCreateLabel
+  getOrCreateLabel,
+  labelMessages
 };
