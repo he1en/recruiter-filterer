@@ -15,7 +15,12 @@ async function sendQuery(path, requestMethod, body, authToken) {
     requestContent
   );
 
-  // TODO handle errors
+  if (!response.ok) {
+    // no cases (yet) where we want to handle a 40X
+    const response_body = await response.json();
+    throw new Error(`${response.status} response from Google API: ${JSON.stringify(response_body)}`);
+  }
+
   return response.json();
 }
 
