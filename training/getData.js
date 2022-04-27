@@ -12,16 +12,11 @@ const gapi = require ('../chrome-extension/gapiQueries');
 
 // Used to make sure this run only gets fresh data
 // update .gitignore if changing these constants
-const LATEST_EPOCH_FILENAME = 'LATEST_EPOCH_S';
-const OLDEST_EPOCH_FILENAME = 'OLDEST_EPOCH_S';
+const LATEST_EPOCH_FILENAME = 'LATEST_EPOCH_MS';
+const OLDEST_EPOCH_FILENAME = 'OLDEST_EPOCH_MS';
 
 const MY_TRAINING_LABEL_ID = 'Label_8613293660186101195'; // replace with yours
 
-
-function getNowEpoch() {
-    // ms to s, which google wants
-    return Math.floor(Date.now() / 1000);
-}
 
 function readLatestEpoch() {
     try {
@@ -36,25 +31,12 @@ function readOldestEpoch() {
     try {
         return parseInt(fs.readFileSync(OLDEST_EPOCH_FILENAME));
     } catch {
-        return getNowEpoch();
+        return Date.now();
     }
 }
 
-async function storeLatestMessages() {
-    const latestEpoch = readLatestEpoch();
-    console.log(`Storing messages newer than latest run of epoch time ${latestEpoch}`);
-
-    // might have a little bit of overlap next run if the below query returns any messages received between now
-    // and this command's termination, but that's ok since no duplicates will be stored, just overwritten
-    const newLatestEpoch = getNowEpoch();
-
-    const authToken = process.env.AUTH_TOKEN;
-
-    const recordedOldestEpoch = readOldestEpoch();
-    var oldestEpoch = recordedOldestEpoch;
-
-    // everything sync so we only write the epoch if we've processed messages
-    const messages = await gapi.getMessages(authToken, 20, null, latestEpoch);
+function writeMessages(messages, prevOldestEpoch) {
+    var newOldestEpoch = prevOldestEpoch;
     for (var i = 0; i < messages.length; i++) {
         // read labelIDs and store in different dir if manually-labeled-recruiting label exists
         // todo let it write in parallel?
@@ -67,19 +49,42 @@ async function storeLatestMessages() {
         const path = `email_data/${msg_folder}/${messages[i].id}.json`
         fs.writeFileSync(path, JSON.stringify(messages[i]));
 
-        const msgEpochS = Math.floor(parseInt(messages[i].internalDate) / 1000)
-        if (msgEpochS < oldestEpoch * 1000) {
-            oldestEpoch = msgEpochS;
+        const msgEpochS = parseInt(messages[i].internalDate)
+        if (msgEpochS < prevOldestEpoch) {
+            newOldestEpoch = msgEpochS;
         }
     };
-    fs.writeFileSync(LATEST_EPOCH_FILENAME, newLatestEpoch.toString())
-    if (oldestEpoch < recordedOldestEpoch) {
-        fs.writeFileSync(OLDEST_EPOCH_FILENAME, oldestEpoch.toString())
+    if (newOldestEpoch < prevOldestEpoch) {
+        fs.writeFileSync(OLDEST_EPOCH_FILENAME, newOldestEpoch.toString())
     }
 }
 
+async function storeLatestMessages() {
+    const latestEpoch = readLatestEpoch();
+    const prevOldestEpoch = readOldestEpoch();
+    console.log(`Storing messages newer than latest run of epoch time ${latestEpoch}`);
+
+    // might have a little bit of overlap next run if the below query returns any messages received between now
+    // and this command's termination, but that's ok since no duplicates will be stored, just overwritten
+    const newLatestEpoch = Date.now();
+
+    // everything sync so we only write the epoch if we've processed messages
+    const messages = await gapi.getMessages(process.env.AUTH_TOKEN, 100, null, latestEpoch);
+    writeMessages(messages, prevOldestEpoch);
+
+    fs.writeFileSync(LATEST_EPOCH_FILENAME, newLatestEpoch.toString())
+
+    // todo if max messages were stored, log that you probably need to start backfilling
+    console.log(`Stored ${messages.length} messages.`)
+}
+
 async function backfillOldMessages(maxMessages) {
-    console.log(`Storing at most ${maxMessages} messages older than`);
+    const oldestEpoch = readOldestEpoch();
+    console.log(`Storing at most ${maxMessages} messages older than epoch ${oldestEpoch}.`);
+
+    const messages = await gapi.getMessages(process.env.AUTH_TOKEN, maxMessages, oldestEpoch, null);
+    writeMessages(messages, oldestEpoch);
+    console.log(`Stored ${messages.length} messages.`)
 
 }
 

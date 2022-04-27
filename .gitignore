@@ -9,5 +9,5 @@ example_messages/
 training/email_data
 
 # specific to user, created dynamically for you by getData.js
-training/OLDEST_EPOCH_S
-training/LATEST_EPOCH_S
+training/OLDEST_EPOCH_MS
+training/LATEST_EPOCH_MS

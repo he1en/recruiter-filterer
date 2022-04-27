@@ -30,14 +30,14 @@ async function sendPost(path, body, authToken) {
 }
 
 
-async function getMessages(authToken, maxMessages, beforeEpoch, afterEpoch) {
+async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs) {
   var filterQuery = "";
-  if (beforeEpoch) {
-    filterQuery = `before:${beforeEpoch} `;
+  if (beforeEpochMs) {
+    filterQuery = `before:${Math.floor(beforeEpochMs / 1000)} `;
   }
-  if (afterEpoch !== null && afterEpoch > 0) {
+  if (afterEpochMs !== null && afterEpochMs > 0) {
     // after: 0 returns nothing instead of everything older than 0
-    filterQuery += `after:${afterEpoch} `;
+    filterQuery += `after:${Math.floor(afterEpochMs / 1000)} `;
   }
 
   var params = {maxResults: maxMessages};
