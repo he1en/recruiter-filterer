@@ -17,11 +17,12 @@ async function doStuff() {
       const labelID = await getOrCreateLabel(LABELNAME, authToken);
 
       // todo rework for better parallelization over messages
-      const rawMessages = await getMessages(authToken, 10);
+      const rawMessages = await getMessages(authToken, 10, null, null);
       console.log(rawMessages)
       const parsedMessages = rawMessages.map(msg => new Message(msg.id, msg.payload));
       const messageIDsToLabel = findRecruitingMessages(parsedMessages);
       console.log(`Found ${messageIDsToLabel.length} recruiting messages. Labeling them now.`)
+      // todo only call if messages to albel since it will 400
       labelMessages(messageIDsToLabel, labelID, authToken);
     }
   );

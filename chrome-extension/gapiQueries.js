@@ -14,6 +14,7 @@ async function sendQuery(path, requestMethod, body, authToken) {
     'https://gmail.googleapis.com/gmail/v1/users/me/' + path,
     requestContent
   );
+
   // TODO handle errors
   return response.json();
 }
@@ -29,9 +30,22 @@ async function sendPost(path, body, authToken) {
 }
 
 
-async function getMessages(authToken, maxMessages) {
+async function getMessages(authToken, maxMessages, beforeEpoch, afterEpoch) {
+  var filterQuery = "";
+  if (beforeEpoch) {
+    filterQuery = `before:${beforeEpoch} `;
+  }
+  if (afterEpoch !== null && afterEpoch > 0) {
+    // after: 0 returns nothing instead of everything older than 0
+    filterQuery += `after:${afterEpoch} `;
+  }
+
+  var params = {maxResults: maxMessages};
+  if (filterQuery.length) {
+    params.q = filterQuery;
+  }
   // return value is array of https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
-  const messagesResponse = await sendGet('messages', {maxResults: maxMessages}, authToken);
+  const messagesResponse = await sendGet('messages', params, authToken);
   const messages = messagesResponse.messages;  // these are {id: <string>, threadID: <string>} objects
 
   // todo check concurrency

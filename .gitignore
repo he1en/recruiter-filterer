@@ -1,5 +1,13 @@
+# contains secrets
 .env
 
+# used for loading the chrome extention for development
 chrome-extension.zip
+
+# all my email content! 
 example_messages/
-training_data/
+training/email_data
+
+# specific to user, created dynamically for you by getData.js
+training/OLDEST_EPOCH_S
+training/LATEST_EPOCH_S
