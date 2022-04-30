@@ -36,6 +36,8 @@ async function sendPost(path, body, authToken) {
 
 
 async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs) {
+  // return value is array of https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
+
   var filterQuery = "";
   if (beforeEpochMs) {
     filterQuery = `before:${Math.floor(beforeEpochMs / 1000)} `;
@@ -49,7 +51,6 @@ async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs) 
   if (filterQuery.length) {
     params.q = filterQuery;
   }
-  // return value is array of https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
   const messagesResponse = await sendGet('messages', params, authToken);
   const messages = messagesResponse.messages;  // these are {id: <string>, threadID: <string>} objects
 
