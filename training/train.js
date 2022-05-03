@@ -3,42 +3,102 @@ const fs = require('fs');
 const natural = require('natural');
 
 
-function getTextAndLabels() {
-    // todo
+const TRAIN_P = 80;
+const VALIDATION_P = 0;
+const TEST_P = 20;
+console.assert(TRAIN_P + VALIDATION_P + TEST_P === 100);
 
-    const rawText = [ // using just "snippet" field of message json for now
-        "Hey Helen, hope you&#39;re doing well. Just following up to see if you have any interest in a brief conversation about what we&#39;re building at Hardfin?",
-        "Hey Helen, I&#39;m hoping to connect even if timing isn&#39;t ideal right now. We plan on seeding 100+ companies in the next 4 years so we&#39;re building a network of high-potential future CTOs and we",
-        "Total $21.13 April 17, 2022 Thanks for riding, Helen We&#39;re glad to have you as an Uber Rewards Gold Member. Total $21.13 You earned 42 points on this trip Trip Fare $17.72 Subtotal $17.72",
-        "6:30 in Nopa sounds perfect! Any places you like? Things that come to mind for me are the Souvla on Divis and Barrel Head Brewhouse but I&#39;m not incredibly familiar with the area."
-    ];
+const POS_DIR = './email_data/recruiting';
+const NEG_DIR = './email_data/not_recruiting';
+const BAYES_CLASSIFIER_FILE = 'bayes_classifier.json';
 
-    // const labels = [1, 1, 0, 0];
-    const labels = ['recruiting', 'recruiting', 'not', 'not'];
-
-    // zip 
-    return rawText.map((text, i) => [text, labels[i]]);
+function getMessageTextFromSetItem(item) {
+    var filePath;
+    if (item.recruiting) {
+        filePath = POS_DIR + '/' + item.name;
+    } else {
+        filePath = NEG_DIR + '/' + item.name;
+    }
+    const msgJSON = JSON.parse(fs.readFileSync(filePath));
+    return getTextFromMsgPart(msgJSON.payload);
 }
 
-// const docs = getTextAndLabels();
-// const classifier = new natural.BayesClassifier();
-// for (var i = 0; i < docs.length; i++) {
-//     classifier.addDocument(docs[i][0], docs[i][1]);
-// }
-// classifier.train();
+function trainClassifier(trainSet) {
+    const classifier = new natural.BayesClassifier();
 
-// console.log(classifier.classify('Hey Helen, Senior Engineer at company?'));
-// console.log(classifier.classify('LongReads + Open Thread'));
+    for (var i = 0; i < trainSet.length; i++) {
+        const messageText = getMessageTextFromSetItem(trainSet[i]);
+        classifier.addDocument(messageText, trainSet[i].recruiting);
+    }
+    classifier.train();
+    classifier.save(BAYES_CLASSIFIER_FILE, err => {if (err) {throw err;}});
+    return classifier;
+}
 
-// classifier.save('classifier.json', function (err, classifier) {
-//     if (err) {
-//       console.log(err)
-//     }
-//     // the classifier is saved to the classifier.json file!
-//   })
+function testClassifier(classifier, testSet) {
+    var truePositives = [];
+    var trueNegatives = [];
+    var falsePositives = [];
+    var falseNegatives = [];
 
-const positiveDocs = readDir(1, './email_data/recruiting').map(vectorizeMessageBody);
-//const negativeDocs = readDir(20, './email_data/not_recruiting').map(vectorizeMessageBody);
+    for (var i = 0; i < testSet.length; i++) {
+        const messageText = getMessageTextFromSetItem(testSet[i]);
+        const classifiedRecruiting = (classifier.classify(messageText) == "true");  // tried to make labels booleans but they got stringified
+        if (classifiedRecruiting && testSet[i].recruiting) {
+            truePositives.push(testSet[i].name);
+        } else if (classifiedRecruiting && !testSet[i].recruiting) {
+            falsePositives.push(testSet[i].name);
+        } else if (!classifiedRecruiting && testSet[i].recruiting) {
+            falseNegatives.push(testSet[i].name);
+        } else if (!classifiedRecruiting && !testSet[i].recruiting) {
+            trueNegatives.push(testSet[i].name);
+        } else {
+            throw new Error('You messed up your classifier test logic');
+        }
+    }
+    console.log(`Out of ${testSet.length} test documents:`);
+    console.log(`${truePositives.length} were true positives (${Math.floor(truePositives.length / testSet.length * 100)}%)`);
+    console.log(`${trueNegatives.length} were true negatives (${Math.floor(trueNegatives.length / testSet.length * 100)}%)`);
+    console.log(`${falsePositives.length} were false positives (${Math.floor(falsePositives.length / testSet.length * 100)}%)`);
+    console.log(`${falseNegatives.length} were false negatives (${Math.floor(falseNegatives.length / testSet.length * 100)}%)`);
+
+    console.log('False Positives: ', falsePositives);
+    console.log('False Negatives: ', falseNegatives);
+}
+
+function shuffleArray(array) {
+    for (var i = array.length - 1; i > 0; i--) {
+        var randomInd = Math.floor(Math.random() * (i + 1));
+        var shuffleElem = array[i];
+        array[i] = array[randomInd];
+        array[randomInd] = shuffleElem;
+    }
+    return array;
+}
+
+
+// read all message filenames
+const posLabeledFiles = fs.readdirSync(POS_DIR).map(fileName => ({name: fileName, recruiting: true}));
+const negLabeledFiles = fs.readdirSync(NEG_DIR).map(fileName => ({name: fileName, recruiting: false}));
+
+// merge them all together to mix recruiting with non recruiting
+// and randomize order to make sure the train/test split will not be on a temporal boundary
+const labeledFiles = shuffleArray(posLabeledFiles.concat(negLabeledFiles));
+
+// split into training, test (TODO validation)
+const splitInd = Math.floor(TRAIN_P / 100 * labeledFiles.length);
+const trainSet = labeledFiles.slice(0, splitInd);
+const testSet = labeledFiles.slice(splitInd);
+
+//const classifier = trainClassifier(trainSet);
+// testClassifier(classifier, testSet);
+const classifier = natural.BayesClassifier.load(BAYES_CLASSIFIER_FILE, null, function (err, classifier) {
+    if (err) {
+        throw err;
+    }
+    testClassifier(classifier, testSet);
+});
+
 
 function readDir(numMessages, dirName) {
     const msgJSONs = [];
