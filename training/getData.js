@@ -5,6 +5,14 @@
  * Usage:
  *      node getData.js --getLatest
  *      node getData.js --backfill 100
+ * 
+ * --getLatest will query newer messages you received since the last time you ran getData.
+ * --backfill will query N messages older than you have stored before.
+ * FIXME If a chunk of messages is missing between your most recent ones and older ones, there is 
+ * no easy way to fill that gap besides manually editing the OLDEST_EPOCH_MS to be the oldest
+ * of the recent chunk of messages. This script does not prioritze getting ALL messages,
+ * since we don't necessarily need them to train a model. It's unclear if the gmail api even
+ * returns messages in chronological order.
  */
 
 const fs = require('fs');
@@ -36,7 +44,7 @@ function readOldestEpoch() {
 }
 
 function writeMessages(messages, prevOldestEpoch) {
-    var newOldestEpoch = prevOldestEpoch;
+    var oldestMessageRetrieved = Date.now(); // Date.now() to ensure first message overrwrites this
     for (var i = 0; i < messages.length; i++) {
         // read labelIDs and store in different dir if manually-labeled-recruiting label exists
         // todo let it write in parallel?
@@ -46,16 +54,18 @@ function writeMessages(messages, prevOldestEpoch) {
         } else {
             msg_folder = 'not_recruiting';
         }
-        const path = `email_data/${msg_folder}/${messages[i].id}.json`
+        const path = `email_data/${msg_folder}/${messages[i].id}.json`;
         fs.writeFileSync(path, JSON.stringify(messages[i]));
 
-        const msgEpochS = parseInt(messages[i].internalDate)
-        if (msgEpochS < prevOldestEpoch) {
-            newOldestEpoch = msgEpochS;
+        const msgEpochS = parseInt(messages[i].internalDate);
+        if (msgEpochS < oldestMessageRetrieved) {
+            oldestMessageRetrieved = msgEpochS;
         }
     };
-    if (newOldestEpoch < prevOldestEpoch) {
-        fs.writeFileSync(OLDEST_EPOCH_FILENAME, newOldestEpoch.toString())
+    console.log('Oldest message retrieved was from ' + oldestMessageRetrieved);
+    if (oldestMessageRetrieved < prevOldestEpoch) {
+        console.log('Writing new oldest epoch.')
+        fs.writeFileSync(OLDEST_EPOCH_FILENAME, oldestMessageRetrieved.toString())
     }
 }
 
@@ -69,13 +79,13 @@ async function storeLatestMessages() {
     const newLatestEpoch = Date.now();
 
     // everything sync so we only write the epoch if we've processed messages
-    const messages = await gapi.getMessages(process.env.AUTH_TOKEN, 100, null, latestEpoch);
+    const messages = await gapi.getMessages(process.env.AUTH_TOKEN, 500, null, latestEpoch);
     writeMessages(messages, prevOldestEpoch);
 
-    fs.writeFileSync(LATEST_EPOCH_FILENAME, newLatestEpoch.toString())
+    fs.writeFileSync(LATEST_EPOCH_FILENAME, newLatestEpoch.toString());
 
     // todo if max messages were stored, log that you probably need to start backfilling
-    console.log(`Stored ${messages.length} messages.`)
+    console.log(`Stored ${messages.length} messages.`);
 }
 
 async function backfillOldMessages(maxMessages) {
