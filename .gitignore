@@ -11,3 +11,9 @@ training/email_data
 # specific to user, created dynamically for you by getData.js
 training/OLDEST_EPOCH_MS
 training/LATEST_EPOCH_MS
+
+
+# node
+training/node_modules/
+
+# editor
