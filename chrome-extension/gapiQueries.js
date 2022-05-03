@@ -38,10 +38,11 @@ async function sendPost(path, body, authToken) {
 async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs) {
   // return value is array of https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
 
-  if (maxMessages == null || maxMessages > 500) {
-    // 500 is the max this api will supply at once. TODO implement paging
-    console.log('We\'re capping this query to 500 messages at once.')
-    maxMessages = 500;
+  if (maxMessages == null || maxMessages > 100) {
+    // FIXME implement paging with sleeps
+    // Gmail API starts giving "Too many concurrent requests for user" 429 errors at anything above 100
+    console.log('We\'re capping this query to 100 messages at once to avoid gmail api concurrency limits.')
+    maxMessages = 100;
   }
 
   var filterQuery = "";
