@@ -57,10 +57,10 @@ function testClassifier(classifier, testSet) {
         }
     }
     console.log(`Out of ${testSet.length} test documents:`);
-    console.log(`${truePositives.length} were true positives (${Math.floor(truePositives.length / testSet.length * 100)}%)`);
-    console.log(`${trueNegatives.length} were true negatives (${Math.floor(trueNegatives.length / testSet.length * 100)}%)`);
-    console.log(`${falsePositives.length} were false positives (${Math.floor(falsePositives.length / testSet.length * 100)}%)`);
-    console.log(`${falseNegatives.length} were false negatives (${Math.floor(falseNegatives.length / testSet.length * 100)}%)`);
+    console.log(`${truePositives.length} were true positives (${truePositives.length / testSet.length * 100}%)`);
+    console.log(`${trueNegatives.length} were true negatives (${trueNegatives.length / testSet.length * 100}%)`);
+    console.log(`${falsePositives.length} were false positives (${falsePositives.length / testSet.length * 100}%)`);
+    console.log(`${falseNegatives.length} were false negatives (${falseNegatives.length / testSet.length * 100}%)`);
 
     console.log('False Positives: ', falsePositives);
     console.log('False Negatives: ', falseNegatives);
@@ -90,7 +90,7 @@ const splitInd = Math.floor(TRAIN_P / 100 * labeledFiles.length);
 const trainSet = labeledFiles.slice(0, splitInd);
 const testSet = labeledFiles.slice(splitInd);
 
-//const classifier = trainClassifier(trainSet);
+// const classifier = trainClassifier(trainSet);
 // testClassifier(classifier, testSet);
 const classifier = natural.BayesClassifier.load(BAYES_CLASSIFIER_FILE, null, function (err, classifier) {
     if (err) {
