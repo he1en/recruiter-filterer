@@ -5,15 +5,13 @@
 chrome-extension.zip
 
 # all my email content! 
-example_messages/
 training/email_data
+temp_classifiers/
 
 # specific to user, created dynamically for you by getData.js
 training/OLDEST_EPOCH_MS
 training/LATEST_EPOCH_MS
 
-
 # node
 training/node_modules/
 
-# editor

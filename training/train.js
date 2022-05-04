@@ -10,7 +10,7 @@ console.assert(TRAIN_P + VALIDATION_P + TEST_P === 100);
 
 const POS_DIR = './email_data/recruiting';
 const NEG_DIR = './email_data/not_recruiting';
-const BAYES_CLASSIFIER_FILE = 'bayes_classifier.json';
+const CLASSIFIER_DIR = './temp_classifiers';
 
 function getMessageTextFromSetItem(item) {
     var filePath;
@@ -23,7 +23,7 @@ function getMessageTextFromSetItem(item) {
     return getTextFromMsgPart(msgJSON.payload);
 }
 
-function trainClassifier(trainSet) {
+function trainBayesClassifier(trainSet) {
     const classifier = new natural.BayesClassifier();
 
     for (var i = 0; i < trainSet.length; i++) {
@@ -31,7 +31,8 @@ function trainClassifier(trainSet) {
         classifier.addDocument(messageText, trainSet[i].recruiting);
     }
     classifier.train();
-    classifier.save(BAYES_CLASSIFIER_FILE, err => {if (err) {throw err;}});
+    const filepath = `${CLASSIFIER_DIR}/bayes_${Date.now()}.json`;
+    classifier.save(filepath, err => {if (err) {throw err;}});
     return classifier;
 }
 
@@ -90,14 +91,20 @@ const splitInd = Math.floor(TRAIN_P / 100 * labeledFiles.length);
 const trainSet = labeledFiles.slice(0, splitInd);
 const testSet = labeledFiles.slice(splitInd);
 
-// const classifier = trainClassifier(trainSet);
-// testClassifier(classifier, testSet);
-const classifier = natural.BayesClassifier.load(BAYES_CLASSIFIER_FILE, null, function (err, classifier) {
-    if (err) {
-        throw err;
-    }
+const loadClassifier = process.argv.includes('--load');
+if (loadClassifier) {
+    const classifierFile = process.argv[process.argv.length - 1];  // fixme: assumption
+    natural.BayesClassifier.load(classifierFile, null, function (err, classifier) {
+        if (err) {
+            throw err;
+        }
+        testClassifier(classifier, testSet);
+    });
+
+} else { // train
+    const classifier = trainBayesClassifier(trainSet);
     testClassifier(classifier, testSet);
-});
+}
 
 
 function readDir(numMessages, dirName) {
@@ -128,7 +135,7 @@ function getTextFromMsgPart(msgPart) {
         const subPartTexts = subParts.map(part => getTextFromMsgPart(part));
         allText = allText.concat(subPartTexts.join(" "));
     }
-    return allText; 
+    return allText;
 }
 
 function vectorizeMessageBody(rawMessage) {
@@ -139,5 +146,4 @@ function vectorizeMessageBody(rawMessage) {
     const stemmedText = tokenizedText.map(natural.PorterStemmer.stem);
     const bigrams = natural.NGrams.bigrams(stemmedText);
     console.log(bigrams);
-
 }
