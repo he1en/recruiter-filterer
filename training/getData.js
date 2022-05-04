@@ -109,38 +109,6 @@ async function backfillOldMessages(maxMessages) {
 
 const getLatest = process.argv.includes('--getLatest');
 const backfill = process.argv.includes('--backfill');
-const fix = process.argv.includes('--fix');
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function tempFix() {
-    const fileNames = fs.readdirSync('./email_data/not_recruiting');
-    var cache = {};
-    var hasLabel;
-    fileNames.sort()
-    for (var i = 700; i < fileNames.length; i++) {
-        const msgJSON = JSON.parse(fs.readFileSync('./email_data/not_recruiting/' + fileNames[i]));
-        if (cache.hasOwnProperty(msgJSON.threadId)) {
-            hasLabel = cache[msgJSON.threadId];
-        } else {
-            hasLabel = await hasManualRecruitingLabel(msgJSON);
-            cache[msgJSON.threadId] = hasLabel;
-        }
-        if (hasLabel) {
-            console.log(fileNames[i]);
-        }
-        if ((i+1) % 100 == 0) {
-            console.log('sleeping at ' + i)
-            await sleep(2000);
-        }
-    }
-}
-
-if (fix) {
-    tempFix()
-}
 
 if (!getLatest && !backfill) {
     console.log('Pass either --getLatest or --backfill numMessages');
