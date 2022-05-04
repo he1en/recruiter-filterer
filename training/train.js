@@ -1,6 +1,25 @@
+/**
+ * @license
+ * Copyright 2022 Helen Hastings
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * =============================================================================
+ */
+
 //import * as tf from '@tensorflow/tfjs';
 const fs = require('fs');
 const natural = require('natural');
+const decisioning = require ('../shared-src/decisioning');
 
 
 const TRAIN_P = 80;
@@ -8,6 +27,7 @@ const VALIDATION_P = 0;
 const TEST_P = 20;
 console.assert(TRAIN_P + VALIDATION_P + TEST_P === 100);
 
+// fixme make these paths work even if not run from training/
 const POS_DIR = './email_data/recruiting';
 const NEG_DIR = './email_data/not_recruiting';
 const CLASSIFIER_DIR = './temp_classifiers';
@@ -20,7 +40,7 @@ function getMessageTextFromSetItem(item) {
         filePath = NEG_DIR + '/' + item.name;
     }
     const msgJSON = JSON.parse(fs.readFileSync(filePath));
-    return getTextFromMsgPart(msgJSON.payload);
+    return decisioning.getPlainTextFromMsgPart(msgJSON.payload);
 }
 
 function trainBayesClassifier(trainSet) {
@@ -104,46 +124,4 @@ if (loadClassifier) {
 } else { // train
     const classifier = trainBayesClassifier(trainSet);
     testClassifier(classifier, testSet);
-}
-
-
-function readDir(numMessages, dirName) {
-    const msgJSONs = [];
-    const fileNames = fs.readdirSync(dirName);
-    for (var i = 0; i < numMessages && i < fileNames.length; i++) {
-        const filePath = dirName + '/' + fileNames[i];
-        const msgJSON = JSON.parse(fs.readFileSync(filePath));
-        msgJSONs.push(msgJSON);
-    }
-    return msgJSONs;
-}
-
-// TO MOVE INTO CHROME EXTENSION
-
-function base64Decode(encoded) {
-    return atob(encoded.replace(/-/g, '+').replace(/_/g, '/'));
-}
-
-function getTextFromMsgPart(msgPart) {
-    // ignoring html here
-    var allText = "";
-    if (msgPart.mimeType.includes("plain")) {
-        allText = allText.concat(base64Decode(msgPart.body.data));
-    }
-    if (msgPart.mimeType.includes("multipart")) {
-        const subParts = msgPart.parts;
-        const subPartTexts = subParts.map(part => getTextFromMsgPart(part));
-        allText = allText.concat(subPartTexts.join(" "));
-    }
-    return allText;
-}
-
-function vectorizeMessageBody(rawMessage) {
-    // todo features such as link wrapping, initial emails
-
-    const plainText = getTextFromMsgPart(rawMessage.payload);
-    const tokenizedText = (new natural.WordTokenizer()).tokenize(plainText);
-    const stemmedText = tokenizedText.map(natural.PorterStemmer.stem);
-    const bigrams = natural.NGrams.bigrams(stemmedText);
-    console.log(bigrams);
 }

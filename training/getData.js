@@ -1,14 +1,32 @@
 /**
+ * @license
+ * Copyright 2022 Helen Hastings
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * =============================================================================
+ */
+
+/**
  * Queries email data in bulk and stores raw json (no parising or decoding) of emails.
- * So they can be used later for training without sending queries each time. 
- * 
+ * So they can be used later for training without sending queries each time.
+ *
  * Usage:
- *      node getData.js --getLatest
+ *      node getData.js --latest
  *      node getData.js --backfill 100
- * 
+ *
  * --getLatest will query newer messages you received since the last time you ran getData.
  * --backfill will query N messages older than you have stored before.
- * FIXME If a chunk of messages is missing between your most recent ones and older ones, there is 
+ * FIXME If a chunk of messages is missing between your most recent ones and older ones, there is
  * no easy way to fill that gap besides manually editing the OLDEST_EPOCH_MS to be the oldest
  * of the recent chunk of messages. This script does not prioritze getting ALL messages,
  * since we don't necessarily need them to train a model. It's unclear if the gmail api even
@@ -16,7 +34,7 @@
  */
 
 const fs = require('fs');
-const gapi = require ('../chrome-extension/gapiQueries');
+const gapi = require('../shared-src/gapiQueries');
 
 // Used to make sure this run only gets fresh data
 // update .gitignore if changing these constants
@@ -107,17 +125,17 @@ async function backfillOldMessages(maxMessages) {
 
 }
 
-const getLatest = process.argv.includes('--getLatest');
+const getLatest = process.argv.includes('--latest');
 const backfill = process.argv.includes('--backfill');
 
 if (!getLatest && !backfill) {
-    console.log('Pass either --getLatest or --backfill numMessages');
+    console.log('Pass either --latest or --backfill numMessages');
 }
 
 if (getLatest) {
     storeLatestMessages();
 }
 if (backfill) {
-    numMessages = process.argv[process.argv.length - 1];  // todo assumption 
+    numMessages = process.argv[process.argv.length - 1];  // todo assumption
     backfillOldMessages(numMessages);
 }

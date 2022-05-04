@@ -1,0 +1,22 @@
+{
+  "name": "recruiter-filterer-chrome-extension",
+  "version": "0.1.0",
+  "description": "Label unsolicited recruiter emails in gmail",
+  "author": "Helen Hastings",
+  "license": "Apache 2.0",
+  "dependencies": {
+    "natural": "^5.2.2"
+  },
+  "devDependencies": {
+    "buffer": "^6.0.3",
+    "events": "^3.3.0",
+    "os-browserify": "^0.3.0",
+    "parcel": "^2.5.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "util": "^0.12.4"
+  },
+  "scripts": {
+    "build": "parcel build chrome-extension-src/gmail.js --dist-dir chrome-extension/"
+  }
+}
