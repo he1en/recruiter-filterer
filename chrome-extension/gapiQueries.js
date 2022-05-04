@@ -106,9 +106,31 @@ async function getOrCreateLabel(labelName, authToken) {
   return createLabel(labelName, authToken);
 }
 
+async function threadHasLabel(threadID, labelName, authToken) {
+  /**
+   *  The Gmail UI only lets you apply a label to a thread as opposed to a single message,
+   *  and sometimes it will only attach the labelID to the FIRST message on the thread. So to know
+   *  for sure if a single message is logically part of a thread, you must check all messages in the
+   *  thread.
+   *
+   * https://webapps.stackexchange.com/questions/74238/how-do-i-work-around-labels-being-applied-to-individual-messages-and-not-convers
+   *
+   */
+  const response = await sendGet(`threads/${threadID}`, {}, authToken);
+  const messages = response.messages;
+  for (var i = 0; i < messages.length; i++) {
+    if (messages[i].labelIds.includes(labelName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
 // todo this logs an error in browser
 module.exports = {
   getMessages,
   getOrCreateLabel,
-  labelMessages
+  labelMessages,
+  threadHasLabel
 };
