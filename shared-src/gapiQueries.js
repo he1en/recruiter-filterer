@@ -56,13 +56,15 @@ async function sendPost(path, body, authToken) {
 }
 
 
-async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs) {
+async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs, unreadOnly) {
   // return value is array of https://developers.google.com/gmail/api/reference/rest/v1/users.messages#Message
 
   if (maxMessages == null || maxMessages > 100) {
     // FIXME implement paging with sleeps
     // Gmail API starts giving "Too many concurrent requests for user" 429 errors at anything above 100
-    console.log('We\'re capping this query to 100 messages at once to avoid gmail api concurrency limits.')
+    if (maxMessages > 100) {
+      console.log('Sorry, We\'re capping this query to 100 messages at once to avoid gmail api concurrency limits.');
+    }
     maxMessages = 100;
   }
 
@@ -74,6 +76,9 @@ async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs) 
     // after: 0 returns nothing instead of everything older than 0
     filterQuery += `after:${Math.floor(afterEpochMs / 1000)} `;
   }
+  if (unreadOnly) {
+    filterQuery += "is:unread";
+  }
 
   var params = {maxResults: maxMessages};
   if (filterQuery.length) {
@@ -81,6 +86,14 @@ async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs) 
   }
   const messagesResponse = await sendGet('messages', params, authToken);
   const messages = messagesResponse.messages;  // these are {id: <string>, threadID: <string>} objects
+  // TODO some logs for if user has too many unread messages:
+  if (unreadOnly) {
+    console.log(`Found ${messages.length} unread messages.`);
+    if (messagesResponse.resultSizeEstimate > 100) {
+      console.log('If you don\'t mark your emails as unread, this chrome extension probably wont work for you :(');
+      console.log('Or if you really just do have a lot of unread emails today, keep refreshing to filter more recruiting emails.');
+    }
+  }
 
   // todo check concurrency
   const messagePromises = messages.map(async function(message) {

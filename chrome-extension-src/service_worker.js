@@ -35,14 +35,15 @@ function findAndLabelMessages(request, sender, responseCallback) {
             console.log(`Checking for label ${LABELNAME} and creating if it does not exist.`)
             const labelID = await getOrCreateLabel(LABELNAME, authToken);
 
-            // fixme rework for better parallelization over messages
-            const rawMessages = await getMessages(authToken, 5, null, null);
+            // fixme rework for better concurrency of message processing
+            const rawMessages = await getMessages(authToken, null, null, null, true);
             const messageIDsToLabel = findRecruitingMessages(rawMessages);
             if (messageIDsToLabel.length > 0) {
-                console.log(`Found ${messageIDsToLabel.length} recruiting messages. Labeling them now.`);
                 labelMessages(messageIDsToLabel, labelID, authToken);
+                console.log(`Labeled ${messageIDsToLabel.length} new recruiting messages.`);
+                // TODO mark messages as unread
             } else {
-                console.log('Found no new recruiting messages this time.');
+                console.log('Found no new unread recruiting messages this time.');
             }
             responseCallback('done');
         }

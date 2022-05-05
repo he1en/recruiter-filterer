@@ -106,7 +106,7 @@ async function storeLatestMessages() {
     const newLatestEpoch = Date.now();
 
     // everything sync so we only write the epoch if we've processed messages
-    const messages = await gapi.getMessages(process.env.AUTH_TOKEN, 500, null, latestEpoch);
+    const messages = await gapi.getMessages(process.env.AUTH_TOKEN, 500, null, latestEpoch, false);
     writeMessages(messages, prevOldestEpoch);
 
     fs.writeFileSync(LATEST_EPOCH_FILENAME, newLatestEpoch.toString());
@@ -119,7 +119,7 @@ async function backfillOldMessages(maxMessages) {
     const oldestEpoch = readOldestEpoch();
     console.log(`Storing at most ${maxMessages} messages older than epoch ${oldestEpoch}.`);
 
-    const messages = await gapi.getMessages(process.env.AUTH_TOKEN, maxMessages, oldestEpoch, null);
+    const messages = await gapi.getMessages(process.env.AUTH_TOKEN, maxMessages, oldestEpoch, null, false);
     writeMessages(messages, oldestEpoch);
     console.log(`Stored ${messages.length} messages.`)
 
