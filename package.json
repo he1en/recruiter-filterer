@@ -17,6 +17,6 @@
     "util": "^0.12.4"
   },
   "scripts": {
-    "build": "parcel build chrome-extension-src/gmail.js --dist-dir chrome-extension/"
+    "build": "parcel build chrome-extension-src/service_worker.js --no-scope-hoist --dist-dir chrome-extension/"
   }
 }

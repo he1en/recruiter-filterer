@@ -38,7 +38,10 @@ async function sendQuery(path, requestMethod, body, authToken) {
     const response_body = await response.json();
     throw new Error(`${response.status} response from Google API: ${JSON.stringify(response_body)}`);
   }
-
+  if (response.status == 204) {
+    // 204 response code means no content. response.json() fails
+    return {};
+  }
   return response.json();
 }
 

@@ -19,9 +19,57 @@
 console.log('hello from service_worker.js');
 import * as natural from 'natural';
 
-natural.BayesClassifier.load('./model.json', null, function (err, classifier) {
-    if (err) {
-        throw err;
+import {isRecruiting, getPlainTextFromMsgPart} from '../shared-src/decisioning.js';
+import {getMessages, getOrCreateLabel, labelMessages, threadHasLabel} from '../shared-src/gapiQueries.js';
+
+const LABELNAME = "Recruiting";
+
+
+function findAndLabelMessages() {
+    console.log('hello from findAndLabelMessages');
+    chrome.identity.getAuthToken(
+        {'interactive': true},
+        async function (authToken) {
+
+            // fixme do this on install instead
+            console.log(`Checking for label ${LABELNAME} and creating if it does not exist.`)
+            const labelID = await getOrCreateLabel(LABELNAME, authToken);
+
+            // fixme rework for better parallelization over messages
+            const rawMessages = await getMessages(authToken, 5, null, null);
+            const messageIDsToLabel = findRecruitingMessages(rawMessages);
+            if (messageIDsToLabel.length > 0) {
+                console.log(`Found ${messageIDsToLabel.length} recruiting messages. Labeling them now.`);
+                labelMessages(messageIDsToLabel, labelID, authToken);
+            } else {
+                console.log('Found no new recruiting messages this time.');
+            }
+            }
+    );
+    natural.BayesClassifier.load('./model.json', null, async function (err, classifier) {
+        if (err) {
+            throw err;
+        }
+        console.log('Loaded classifier')
+    });
+
+}
+
+function findRecruitingMessages(messageJSONs) {
+    const idsToReturn = [];
+    for (var i = 0; i < messageJSONs.length; i++) {
+      try {
+        if (isRecruiting(messageJSONs[i])) {
+          idsToReturn.push(messageJSONs[i].id)
+          console.log(messageJSONs[i].snippet + ' IS RECRUITING')
+        }
+      } catch (err) {
+        console.log(`error in deciding message [${messageJSONs[i].snippet}]:`);
+        console.log(err)
+      }
+
     }
-    console.log('Loaded classifier')
-});
+    return idsToReturn;
+  }
+
+chrome.tabs.onCreated.addListener(findAndLabelMessages);

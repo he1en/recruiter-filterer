@@ -16,4 +16,17 @@
  * =============================================================================
  */
 
-console.log('Gmail is opened- hello from gmail.js');
+console.log('hello from popup.js')
+
+window.onload = function() {
+  document.querySelector('button').addEventListener('click', logAuthToken)
+};
+
+async function logAuthToken() {
+  chrome.identity.getAuthToken(
+    {'interactive': true},
+    async function (authToken) {
+      console.log(authToken);
+    }
+  );
+}
