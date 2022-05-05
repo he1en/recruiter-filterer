@@ -17,7 +17,7 @@
  */
 
 console.log('hello from service_worker.js');
-import * as natural from 'natural';
+//import * as natural from 'natural';
 
 import {isRecruiting, getPlainTextFromMsgPart} from '../shared-src/decisioning.js';
 import {getMessages, getOrCreateLabel, labelMessages, threadHasLabel} from '../shared-src/gapiQueries.js';
@@ -25,8 +25,8 @@ import {getMessages, getOrCreateLabel, labelMessages, threadHasLabel} from '../s
 const LABELNAME = "Recruiting";
 
 
-function findAndLabelMessages() {
-    console.log('hello from findAndLabelMessages');
+function findAndLabelMessages(request, sender, responseCallback) {
+    console.log(`findAndLabelMessages called by ${sender.url} with request ${request}`);
     chrome.identity.getAuthToken(
         {'interactive': true},
         async function (authToken) {
@@ -44,14 +44,16 @@ function findAndLabelMessages() {
             } else {
                 console.log('Found no new recruiting messages this time.');
             }
-            }
-    );
-    natural.BayesClassifier.load('./model.json', null, async function (err, classifier) {
-        if (err) {
-            throw err;
+            responseCallback('done');
         }
-        console.log('Loaded classifier')
-    });
+    );
+    return true; // makes sure responseCallback is called
+    // natural.BayesClassifier.load('./model.json', null, async function (err, classifier) {
+    //     if (err) {
+    //         throw err;
+    //     }
+    //     console.log('Loaded classifier')
+    // });
 
 }
 
@@ -61,7 +63,7 @@ function findRecruitingMessages(messageJSONs) {
       try {
         if (isRecruiting(messageJSONs[i])) {
           idsToReturn.push(messageJSONs[i].id)
-          console.log(messageJSONs[i].snippet + ' IS RECRUITING')
+          console.log(`Found recruiting message (snippet = ${messageJSONs[i].snippet}).`);
         }
       } catch (err) {
         console.log(`error in deciding message [${messageJSONs[i].snippet}]:`);
@@ -72,4 +74,5 @@ function findRecruitingMessages(messageJSONs) {
     return idsToReturn;
   }
 
-chrome.tabs.onCreated.addListener(findAndLabelMessages);
+//chrome.tabs.onCreated.addListener(findAndLabelMessages);
+chrome.runtime.onMessage.addListener(findAndLabelMessages);

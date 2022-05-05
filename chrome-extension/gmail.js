@@ -17,3 +17,6 @@
  */
 
 console.log('Gmail is opened- hello from gmail.js');
+chrome.runtime.sendMessage('gmailOpened', function(response) {
+    console.log('Service worker responded: ' + response);
+});
