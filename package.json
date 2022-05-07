@@ -9,6 +9,7 @@
     "natural": "^5.2.2"
   },
   "devDependencies": {
+    "@tensorflow/tfjs-node": "^3.16.0",
     "buffer": "^6.0.3",
     "events": "^3.3.0",
     "os-browserify": "^0.3.0",
