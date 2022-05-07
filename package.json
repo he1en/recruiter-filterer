@@ -5,6 +5,7 @@
   "author": "Helen Hastings",
   "license": "Apache 2.0",
   "dependencies": {
+    "@tensorflow/tfjs": "^3.16.0",
     "natural": "^5.2.2"
   },
   "devDependencies": {

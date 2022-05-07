@@ -58,6 +58,6 @@ function getPlainTextFromMsgPart(msgPart) {
 // todo this logs an error in browser
 module.exports = {
     isRecruiting,
-    getPlainTextFromMsgPart
+    getPlainTextFromMsgPart,
 };
 
