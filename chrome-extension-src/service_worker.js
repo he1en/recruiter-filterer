@@ -17,10 +17,11 @@
  */
 
 console.log('hello from service_worker.js');
-//import * as natural from 'natural';
 
-import {isRecruiting, getPlainTextFromMsgPart} from '../shared-src/decisioning.js';
-import {getMessages, getOrCreateLabel, labelMessages, threadHasLabel} from '../shared-src/gapiQueries.js';
+const tf = require('@tensorflow/tfjs')
+const decisioning = require('../shared-src/decisioning.js');
+const gapi = require('../shared-src/gapiQueries.js');
+const vocabulary = require('./vocabulary.json');
 
 const LABELNAME = "Recruiting";
 
@@ -33,13 +34,13 @@ function findAndLabelMessages(request, sender, responseCallback) {
 
             // fixme do this on install instead
             console.log(`Checking for label ${LABELNAME} and creating if it does not exist.`)
-            const labelID = await getOrCreateLabel(LABELNAME, authToken);
+            const labelID = await gapi.getOrCreateLabel(LABELNAME, authToken);
 
             // fixme rework for better concurrency of message processing
-            const rawMessages = await getMessages(authToken, null, null, null, true);
-            const messageIDsToLabel = findRecruitingMessages(rawMessages);
+            const rawMessages = await gapi.getMessages(authToken, null, null, null, true);
+            const messageIDsToLabel = await findRecruitingMessages(rawMessages);
             if (messageIDsToLabel.length > 0) {
-                labelMessages(messageIDsToLabel, labelID, authToken);
+                gapi.labelMessages(messageIDsToLabel, labelID, authToken);
                 console.log(`Labeled ${messageIDsToLabel.length} new recruiting messages.`);
                 // TODO mark messages as unread
             } else {
@@ -49,31 +50,23 @@ function findAndLabelMessages(request, sender, responseCallback) {
         }
     );
     return true; // makes sure responseCallback is called
-    // natural.BayesClassifier.load('./model.json', null, async function (err, classifier) {
-    //     if (err) {
-    //         throw err;
-    //     }
-    //     console.log('Loaded classifier')
-    // });
-
 }
 
-function findRecruitingMessages(messageJSONs) {
+async function loadModel() {
+    return await tf.loadLayersModel('./model/model.json');
+}
+
+async function findRecruitingMessages(messageJSONs) {
+    model = await loadModel();
     const idsToReturn = [];
+    const predictions = decisioning.predictRecruiting(vocabulary, model, messageJSONs);
     for (var i = 0; i < messageJSONs.length; i++) {
-      try {
-        if (isRecruiting(messageJSONs[i])) {
+        if (predictions[i]) {
           idsToReturn.push(messageJSONs[i].id)
           console.log(`Found recruiting message (snippet = ${messageJSONs[i].snippet}).`);
         }
-      } catch (err) {
-        console.log(`error in deciding message [${messageJSONs[i].snippet}]:`);
-        console.log(err)
-      }
-
     }
     return idsToReturn;
-  }
+}
 
-//chrome.tabs.onCreated.addListener(findAndLabelMessages);
 chrome.runtime.onMessage.addListener(findAndLabelMessages);

@@ -19,33 +19,71 @@
 
 const tf = require('@tensorflow/tfjs-node');
 const fs = require('fs');
-const natural = require('natural');
-const decisioning = require ('../shared-src/decisioning');
-
+const decisioning = require('../shared-src/decisioning');
 
 const TRAIN_P = 85;
 const TEST_P = 15;
 console.assert(TRAIN_P + TEST_P === 100);
-const MAX_TEXT_FEATURES = 4000;
+const MAX_TEXT_FEATURES = 5000;
 const DESCENT_EPOCHS = 500;
-const CONFIDENCE_THRESHOLD = 0.5;
-const USE_BIGRAMS = true;
-
 
 const POS_DIR = './email_data/recruiting';
 const NEG_DIR = './email_data/not_recruiting';
 const CLASSIFIER_DIR = './temp_classifiers';
 
 
-function getMessageTextFromSetItem(item) {
+function readMessageJSONFromSetItem(item) {
     var filePath;
     if (item.recruiting) {
         filePath = POS_DIR + '/' + item.name;
     } else {
         filePath = NEG_DIR + '/' + item.name;
     }
-    const msgJSON = JSON.parse(fs.readFileSync(filePath));
+    return JSON.parse(fs.readFileSync(filePath));
+}
+
+
+function getMessageTextFromSetItem(item) {
+    const msgJSON = readMessageJSONFromSetItem(item);
     return decisioning.getPlainTextFromMsgPart(msgJSON.payload);
+}
+
+
+function buildVocabulary(trainSet) {
+    // return array of size MAX_TEXT_FEATURES of the top seen words and bigrams
+    var vocabOccurrences = {}
+    for (var i = 0; i < trainSet.length; i++) {
+        const messageText = getMessageTextFromSetItem(trainSet[i]);
+        const tokenizedText = decisioning.tokenizeText(messageText);
+        for (var j = 0; j < tokenizedText.length; j++) {
+            const token = tokenizedText[j]
+            if (token == '0' || parseInt(token)) { // could also remove stop words
+                continue;
+            }
+            if (!vocabOccurrences.hasOwnProperty(token)) {
+                vocabOccurrences[token] = 0;
+            }
+            vocabOccurrences[token] += 1;
+        };
+    }
+    const topWordsAndCounts = Object.entries(vocabOccurrences).sort((a, b) => b[1] - a[1]).slice(0, MAX_TEXT_FEATURES);
+    return topWordsAndCounts.map(elem => elem[0]);
+}
+
+function docsToVectorsAndLabels(docs, vocabulary) {
+    const vectors = [];
+    const labels = [];
+    for (var i = 0; i < docs.length; i++) {
+        const messageText = getMessageTextFromSetItem(docs[i]);
+        const vector = decisioning.oneHotVectorize(messageText, vocabulary);
+        vectors.push(vector);
+        if (docs[i].recruiting) {
+            labels.push(1);
+        } else {
+            labels.push(0);
+        }
+    }
+    return {vectors, labels};
 }
 
 function testModel(vocabulary, model, testSet) {
@@ -54,11 +92,10 @@ function testModel(vocabulary, model, testSet) {
     var falsePositives = [];
     var falseNegatives = [];
 
+    const messageJSONs = testSet.map(readMessageJSONFromSetItem);
+    const predictions = decisioning.predictRecruiting(vocabulary, model, messageJSONs);
     for (var i = 0; i < testSet.length; i++) {
-        const messageText = getMessageTextFromSetItem(testSet[i]);
-        const vector = oneHotvectorize(messageText, vocabulary);
-        const prob = model.predict(tf.tensor2d([vector])).dataSync()[0];
-        const classifiedRecruiting = prob > CONFIDENCE_THRESHOLD;
+        const classifiedRecruiting = predictions[i];
         if (classifiedRecruiting && testSet[i].recruiting) {
             truePositives.push(testSet[i].name);
         } else if (classifiedRecruiting && !testSet[i].recruiting) {
@@ -81,79 +118,19 @@ function testModel(vocabulary, model, testSet) {
     console.log('False Negatives: ', falseNegatives);
 }
 
-function shuffleArray(array) {
-    for (var i = array.length - 1; i > 0; i--) {
-        var randomInd = Math.floor(Math.random() * (i + 1));
-        var shuffleElem = array[i];
-        array[i] = array[randomInd];
-        array[randomInd] = shuffleElem;
-    }
-    return array;
+
+async function evaluateModel(vocabulary, model, testSet) {
+    const {vectors, labels} = docsToVectorsAndLabels(testSet, vocabulary);
+
+    const result = model.evaluate(tf.tensor2d(vectors), tf.tensor(labels));
+    const loss = result[0]; // diff between label and probability
+    const accuracy = result[1]; // what % of transactions are correctly labeled
+    console.log('Loss: ');
+    loss.print();
+    console.log('Accuracy: ');
+    accuracy.print();
 }
 
-function oneHotvectorize(text, vocabulary) {
-    var counts = {};
-    for (var i = 0; i < vocabulary.length; i++) {
-        counts[vocabulary[i]] = 0;
-    }
-    const tokenizedText = tokenizeText(text);
-    for (var i = 0; i < tokenizedText.length; i++) {
-        const token = tokenizedText[i];
-        if (vocabulary.includes(token)) {
-            counts[token] += 1
-        }
-    }
-    const vector = vocabulary.map(word => counts[word]);
-    return vector;
-}
-
-function tokenizeText(text) {
-    const textArray = (new natural.WordTokenizer()).tokenize(text);
-    const stemmedText = textArray.map(natural.PorterStemmer.stem);
-    if (!USE_BIGRAMS) {
-        return stemmedText;
-    }
-    const bigrams = natural.NGrams.bigrams(stemmedText); // array of arrays length 2
-    const bigramTokens = bigrams.map(bigram => bigram.join('$')); // is arbitrary delimeter
-    return stemmedText.concat(bigramTokens);
-}
-
-function buildVocabulary(trainSet) {
-    // return array of size MAX_TEXT_FEATURES of the top seen words and bigrams
-    var vocabOccurrences = {}
-    for (var i = 0; i < trainSet.length; i++) {
-        const messageText = getMessageTextFromSetItem(trainSet[i]);
-        const tokenizedText = tokenizeText(messageText);
-        for (var j = 0; j < tokenizedText.length; j++) {
-            const token = tokenizedText[j]
-            if (token == '0' || parseInt(token)) { // could also remove stop words
-                continue;
-            }
-            if (!vocabOccurrences.hasOwnProperty(token)) {
-                vocabOccurrences[token] = 0;
-            }
-            vocabOccurrences[token] += 1;
-        };
-    }
-    const topWordsAndCounts = Object.entries(vocabOccurrences).sort((a, b) => b[1] - a[1]).slice(0, MAX_TEXT_FEATURES);
-    return topWordsAndCounts.map(elem => elem[0]);
-}
-
-function docsToVectorsAndLabels(docs, vocabulary) {
-    const vectors = [];
-    const labels = [];
-    for (var i = 0; i < docs.length; i++) {
-        const messageText = getMessageTextFromSetItem(docs[i]);
-        const vector = oneHotvectorize(messageText, vocabulary);
-        vectors.push(vector);
-        if (docs[i].recruiting) {
-            labels.push(1);
-        } else {
-            labels.push(0);
-        }
-    }
-    return {vectors, labels};
-}
 
 async function trainModel(trainSet, modelNameInfo) {
     const vocabulary = buildVocabulary(trainSet);
@@ -187,17 +164,17 @@ async function trainModel(trainSet, modelNameInfo) {
     return {vocabulary, model};
 }
 
-async function evaluateModel(vocabulary, model, testSet) {
-    const {vectors, labels} = docsToVectorsAndLabels(testSet, vocabulary);
 
-    const result = model.evaluate(tf.tensor2d(vectors), tf.tensor(labels));
-    const loss = result[0]; // diff between label and probability
-    const accuracy = result[1]; // what % of transactions are correctly labeled
-    console.log('Loss: ');
-    loss.print();
-    console.log('Accuracy: ');
-    accuracy.print();
+function shuffleArray(array) {
+    for (var i = array.length - 1; i > 0; i--) {
+        var randomInd = Math.floor(Math.random() * (i + 1));
+        var shuffleElem = array[i];
+        array[i] = array[randomInd];
+        array[randomInd] = shuffleElem;
+    }
+    return array;
 }
+
 
 // read all message filenames
 const posLabeledFiles = fs.readdirSync(POS_DIR).map(fileName => ({name: fileName, recruiting: true}));
@@ -217,7 +194,6 @@ if (loadModel) {
     const modelLoc = process.argv[process.argv.length - 1];  // fixme: assumption
     const vocabulary = JSON.parse(fs.readFileSync(`${modelLoc}/vocabulary.json`));
     tf.loadLayersModel(`file://${modelLoc}/model.json`).then(model => testModel(vocabulary, model, testSet));
-
 } else {
     var modelNameInfo;
     if (process.argv.length > 2) {
@@ -231,5 +207,3 @@ if (loadModel) {
         testModel(results.vocabulary, results.model, testSet);
     });
 }
-
-

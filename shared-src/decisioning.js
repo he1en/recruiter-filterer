@@ -16,13 +16,23 @@
  * =============================================================================
  */
 
+import * as natural from 'natural';
+import * as tf from '@tensorflow/tfjs';
 
-function isRecruiting(message) {
-    const body = getPlainTextFromMsgPart(message.payload);
-    return (
-        body.includes("your background") ||
-        body.includes("great fit")
-    )
+const CONFIDENCE_THRESHOLD = 0.5;
+const USE_BIGRAMS = true;
+
+
+function predictRecruiting(vocabulary, model, messages) {
+    // returns array of booleans, whether each message is recruiting
+    // todo don't let one malformed message break the whole function
+
+    const featureVectors = messages.map(message => {
+        const text = getPlainTextFromMsgPart(message.payload);
+        return oneHotVectorize(text, vocabulary);
+    })
+    const probs = model.predict(tf.tensor2d(featureVectors)).dataSync();
+    return probs.map(prob => prob > CONFIDENCE_THRESHOLD);
 }
 
 
@@ -45,9 +55,39 @@ function getPlainTextFromMsgPart(msgPart) {
     return allText;
 }
 
+
+function oneHotVectorize(text, vocabulary) {
+    var counts = {};
+    for (var i = 0; i < vocabulary.length; i++) {
+        counts[vocabulary[i]] = 0;
+    }
+    const tokenizedText = tokenizeText(text);
+    for (var i = 0; i < tokenizedText.length; i++) {
+        const token = tokenizedText[i];
+        if (vocabulary.includes(token)) {
+            counts[token] += 1
+        }
+    }
+    const vector = vocabulary.map(word => counts[word]);
+    return vector;
+}
+
+function tokenizeText(text) {
+    const textArray = (new natural.WordTokenizer()).tokenize(text);
+    const stemmedText = textArray.map(natural.PorterStemmer.stem);
+    if (!USE_BIGRAMS) {
+        return stemmedText;
+    }
+    const bigrams = natural.NGrams.bigrams(stemmedText); // array of arrays length 2
+    const bigramTokens = bigrams.map(bigram => bigram.join('$')); // is arbitrary delimeter
+    return stemmedText.concat(bigramTokens);
+}
+
 // todo this logs an error in browser
 module.exports = {
-    isRecruiting,
     getPlainTextFromMsgPart,
+    oneHotVectorize,
+    predictRecruiting,
+    tokenizeText
 };
 
