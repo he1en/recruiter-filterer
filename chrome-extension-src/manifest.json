@@ -1,0 +1,34 @@
+{
+  "name": "Recruiter Filterer",
+  "version": "0.1.0",
+  "manifest_version": 2,
+  "description": "Recruiter Filterer",
+  "permissions": [
+    "identity"
+  ],
+  "content_security_policy": "connect-src 'self' https://gmail.googleapis.com/; script-src 'self' 'unsafe-eval'; object-src 'self'",
+  "background": {
+    "scripts": ["service_worker.js"]
+  },
+  "page_action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["gmail.js"]
+    }
+  ],
+  "oauth2": {
+    "client_id": "<OAUTH_CLIENT_ID>",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.modify"
+    ]
+  },
+  "icons": {
+    "16": "icon.png",
+    "128": "icon.png"
+  },
+  "key": "<CHROME_DEVELOPER_PUBLIC_KEY>"
+}

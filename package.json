@@ -19,6 +19,6 @@
     "util": "^0.12.4"
   },
   "scripts": {
-    "build": "parcel build chrome-extension-src/service_worker.js --no-scope-hoist --dist-dir chrome-extension/"
+    "build": "parcel build chrome-extension-src/service_worker.js --no-scope-hoist --dist-dir chrome-extension/ && sed \"s/<OAUTH_CLIENT_ID>/$OAUTH_CLIENT_ID/;s|<CHROME_DEVELOPER_PUBLIC_KEY>|$CHROME_DEV_PUBLIC_KEY|\" chrome-extension-src/manifest.json > chrome-extension/manifest.json"
   }
 }
