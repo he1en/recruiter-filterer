@@ -105,7 +105,7 @@ function shuffleArray(array) {
 // text vector is vector of word indices
 // add embedding layer
 
-function vectorize(text, vocabulary) {
+function oneHotvectorize(text, vocabulary) {
     var counts = {};
     for (var i = 0; i < vocabulary.length; i++) {
         counts[vocabulary[i]] = 0;
@@ -119,6 +119,20 @@ function vectorize(text, vocabulary) {
         }
     }
     const vector = vocabulary.map(word => counts[word]);
+    return vector;
+}
+
+function vectorize(text, vocabulary) {
+    const tokenizedText = (new natural.WordTokenizer()).tokenize(text);
+    const stemmedText = tokenizedText.map(natural.PorterStemmer.stem);
+    const vector = [];
+    for (var i = 0; i < stemmedText.length; i++) {
+        word = stemmedText[i];
+        index = vocabulary.indexOf(word);
+        if (index > -1) {
+            vector.push(index)
+        }
+    }
     return vector;
 }
 
@@ -161,16 +175,19 @@ function docsToVectorsAndLabels(docs, vocabulary) {
     return {vectors, labels};
 }
 
-async function trainModel(trainSet) {
+async function trainModel(trainSet, modelNameInfo) {
     const vocabulary = buildVocabulary(trainSet);
-    console.log(vocabulary);
     const {vectors, labels} = docsToVectorsAndLabels(trainSet, vocabulary);
 
-    const model = tf.sequential();
-    // units: 1 means one number output
-    // sigmoid activation for
-    // inputShape is saying each input is a vector of size vocabulary.length
-    model.add(tf.layers.dense({units: 1, inputShape: [vocabulary.length], activation: 'sigmoid'}));
+    const model = tf.sequential({
+        layers: [
+            // embedding layer turns integer encoded word vectors to word embeddings
+            tf.layers.embedding({inputDim: vocabulary.length, outputDim: 32}),
+            tf.layers.globalAveragePooling1d(), // turns variable length vector into fixed
+            tf.layers.dense({units: 1}) // units: 1 means one number output
+        ]
+    });
+
     // choose adam gradient descent
     // binaryCrossentropy is used when we want 0 or 1 classification
     // metrics don't affect training, just used later for evaluation. binaryAccuracy is easier to read, just shows percentange of transactions are labeled
@@ -181,7 +198,7 @@ async function trainModel(trainSet) {
     const fittingHistory = await model.fit(tf.tensor2d(vectors), tf.tensor(labels), {epochs: DESCENT_EPOCHS});
     console.log(fittingHistory);
     model.summary();
-    const dir = `${CLASSIFIER_DIR}/tf_adam_${Date.now()}`;
+    const dir = `${CLASSIFIER_DIR}/tf_adam_${Date.now()}_${modelNameInfo}`;
     await model.save(`file://${dir}`);
     fs.writeFileSync(`${dir}/vocabulary.json`, JSON.stringify(vocabulary));
     return {vocabulary, model};
@@ -198,7 +215,6 @@ async function evaluateModel(vocabulary, model, testSet) {
     console.log('Accuracy: ');
     accuracy.print();
 }
-
 
 // read all message filenames
 const posLabeledFiles = fs.readdirSync(POS_DIR).map(fileName => ({name: fileName, recruiting: true}));
@@ -220,7 +236,14 @@ if (loadModel) {
     tf.loadLayersModel(`file://${modelLoc}/model.json`).then(model => testModel(vocabulary, model, testSet));
 
 } else {
-    trainModel(trainSet).then(results => {
+    var modelNameInfo;
+    if (process.argv.length > 2) {
+        // optional add some string to name the model when saved
+        modelNameInfo = process.argv[process.argv.length - 1];
+    } else {
+        modelNameInfo = '';
+    }
+    trainModel(trainSet, modelNameInfo).then(results => {
         evaluateModel(results.vocabulary, results.model, testSet);
         testModel(results.vocabulary, results.model, testSet);
     });
