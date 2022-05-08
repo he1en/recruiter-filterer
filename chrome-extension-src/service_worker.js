@@ -42,13 +42,15 @@ function findAndLabelMessages(request, sender, responseCallback) {
             if (messageIDsToLabel.length > 0) {
                 gapi.labelAndMarkAsUnread(messageIDsToLabel, labelID, authToken);
                 console.log(`Labeled ${messageIDsToLabel.length} new recruiting messages and marked as unread.`);
-                // TODO mark messages as unread
+                // refresh or else newly marked unread messages will still show as unread
+                chrome.tabs.reload(sender.tab.id);
             } else {
                 console.log('Found no new unread recruiting messages this time.');
             }
             responseCallback('done');
         }
     );
+
     return true; // makes sure responseCallback is called
 }
 
