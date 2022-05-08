@@ -45,16 +45,6 @@ function getPlainTextFromMsgPart(msgPart) {
     return allText;
 }
 
-// function vectorizeMessageBody(rawMessage) {
-//     // todo features such as link wrapping, initial emails
-
-//     const plainText = getTextFromMsgPart(rawMessage.payload);
-//     const tokenizedText = (new natural.WordTokenizer()).tokenize(plainText);
-//     const stemmedText = tokenizedText.map(natural.PorterStemmer.stem);
-//     const bigrams = natural.NGrams.bigrams(stemmedText);
-//     console.log(bigrams);
-// }
-
 // todo this logs an error in browser
 module.exports = {
     isRecruiting,

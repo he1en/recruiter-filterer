@@ -27,8 +27,8 @@ const decisioning = require ('../shared-src/decisioning');
 const TRAIN_P = 85;
 const TEST_P = 15;
 console.assert(TRAIN_P + TEST_P === 100);
-const MAX_TEXT_FEATURES = 500;
-const DESCENT_EPOCHS = 100;
+const MAX_TEXT_FEATURES = 2000;
+const DESCENT_EPOCHS = 500;
 const CONFIDENCE_THRESHOLD = 0.5;
 
 
@@ -48,7 +48,7 @@ function getMessageTextFromSetItem(item) {
     return decisioning.getPlainTextFromMsgPart(msgJSON.payload);
 }
 
-function testModel(model, testSet) {
+function testModel(vocabulary, model, testSet) {
     var truePositives = [];
     var trueNegatives = [];
     var falsePositives = [];
@@ -56,7 +56,7 @@ function testModel(model, testSet) {
 
     for (var i = 0; i < testSet.length; i++) {
         const messageText = getMessageTextFromSetItem(testSet[i]);
-        const vector = vectorize(messageText);
+        const vector = vectorize(messageText, vocabulary);
         const prob = model.predict(tf.tensor2d([vector])).dataSync()[0];
         const classifiedRecruiting = prob > CONFIDENCE_THRESHOLD;
         if (classifiedRecruiting && testSet[i].recruiting) {
@@ -91,7 +91,6 @@ function shuffleArray(array) {
     return array;
 }
 
-const vocabulary = ["opportunity", "background", "chat", "fit", "hiring", "sourcer", "recruiter", "exciting", "helen", "affirm"];
 
 // in train
 // for every doc in train set
@@ -99,7 +98,14 @@ const vocabulary = ["opportunity", "background", "chat", "fit", "hiring", "sourc
 // take certain numbr of them to limit to MAX_FEATURES-- how to choose??
 // this is the vocab. save it
 
-function vectorize(text) {
+// for embeddings-
+// for every doc in train set
+// add all stemmed words to a set
+// create hash of word: index
+// text vector is vector of word indices
+// add embedding layer
+
+function vectorize(text, vocabulary) {
     var counts = {};
     for (var i = 0; i < vocabulary.length; i++) {
         counts[vocabulary[i]] = 0;
@@ -116,12 +122,35 @@ function vectorize(text) {
     return vector;
 }
 
-function docsToVectorsAndLabels(docs) {
+function buildVocabulary(trainSet) {
+    // return array of size MAX_TEXT_FEATURES of the top seen words
+    var vocabOccurrences = {}
+    for (var i = 0; i < trainSet.length; i++) {
+        const messageText = getMessageTextFromSetItem(trainSet[i]);
+        const tokenizedText = (new natural.WordTokenizer()).tokenize(messageText);
+        const stemmedText = tokenizedText.map(natural.PorterStemmer.stem);
+        // const bigrams = natural.NGrams.bigrams(stemmedText);
+        for (var j = 0; j < stemmedText.length; j++) {
+            word = stemmedText[j]
+            if (word == '0' || parseInt(word)) {
+                continue;
+            }
+            if (!vocabOccurrences.hasOwnProperty(word)) {
+                vocabOccurrences[word] = 0;
+            }
+            vocabOccurrences[word] += 1;
+        };
+    }
+    const topWordsAndCounts = Object.entries(vocabOccurrences).sort((a, b) => b[1] - a[1]).slice(0, MAX_TEXT_FEATURES);
+    return topWordsAndCounts.map(elem => elem[0]);
+}
+
+function docsToVectorsAndLabels(docs, vocabulary) {
     const vectors = [];
     const labels = [];
     for (var i = 0; i < docs.length; i++) {
         const messageText = getMessageTextFromSetItem(docs[i]);
-        const vector = vectorize(messageText);
+        const vector = vectorize(messageText, vocabulary);
         vectors.push(vector);
         if (docs[i].recruiting) {
             labels.push(1);
@@ -133,12 +162,14 @@ function docsToVectorsAndLabels(docs) {
 }
 
 async function trainModel(trainSet) {
-    const {vectors, labels} = docsToVectorsAndLabels(trainSet);
+    const vocabulary = buildVocabulary(trainSet);
+    console.log(vocabulary);
+    const {vectors, labels} = docsToVectorsAndLabels(trainSet, vocabulary);
 
     const model = tf.sequential();
     // units: 1 means one number output
     // sigmoid activation for
-    // shape [10] means each doc is a 10 length vector
+    // inputShape is saying each input is a vector of size vocabulary.length
     model.add(tf.layers.dense({units: 1, inputShape: [vocabulary.length], activation: 'sigmoid'}));
     // choose adam gradient descent
     // binaryCrossentropy is used when we want 0 or 1 classification
@@ -149,14 +180,15 @@ async function trainModel(trainSet) {
     // valiodation batch size 32 by default
     const fittingHistory = await model.fit(tf.tensor2d(vectors), tf.tensor(labels), {epochs: DESCENT_EPOCHS});
     console.log(fittingHistory);
-    const filepath = `file://${CLASSIFIER_DIR}/tf_adam_${Date.now()}`;
-    model.save(filepath);
     model.summary();
-    return model;
+    const dir = `${CLASSIFIER_DIR}/tf_adam_${Date.now()}`;
+    await model.save(`file://${dir}`);
+    fs.writeFileSync(`${dir}/vocabulary.json`, JSON.stringify(vocabulary));
+    return {vocabulary, model};
 }
 
-async function evaluateModel(model, testSet) {
-    const {vectors, labels} = docsToVectorsAndLabels(testSet);
+async function evaluateModel(vocabulary, model, testSet) {
+    const {vectors, labels} = docsToVectorsAndLabels(testSet, vocabulary);
 
     const result = model.evaluate(tf.tensor2d(vectors), tf.tensor(labels));
     const loss = result[0]; // diff between label and probability
@@ -184,10 +216,14 @@ const testSet = labeledFiles.slice(splitInd);
 const loadModel = process.argv.includes('--load');
 if (loadModel) {
     const modelLoc = process.argv[process.argv.length - 1];  // fixme: assumption
-    tf.loadLayersModel(`file://${modelLoc}/model.json`).then(model => testModel(model, testSet));
+    const vocabulary = JSON.parse(fs.readFileSync(`${modelLoc}/vocabulary.json`));
+    tf.loadLayersModel(`file://${modelLoc}/model.json`).then(model => testModel(vocabulary, model, testSet));
 
 } else {
-    trainModel(trainSet).then(model => evaluateModel(model, testSet));
+    trainModel(trainSet).then(results => {
+        evaluateModel(results.vocabulary, results.model, testSet);
+        testModel(results.vocabulary, results.model, testSet);
+    });
 }
 
 
