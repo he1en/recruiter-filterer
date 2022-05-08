@@ -17,8 +17,7 @@
  */
 
 
-//const tf = require('@tensorflow/tfjs');
-const tf = require('@tensorflow/tfjs-node');  // needed for saving a model to local filesystem to work. But using tfjs to share code with browser
+const tf = require('@tensorflow/tfjs-node');
 const fs = require('fs');
 const natural = require('natural');
 const decisioning = require ('../shared-src/decisioning');
@@ -27,15 +26,16 @@ const decisioning = require ('../shared-src/decisioning');
 const TRAIN_P = 85;
 const TEST_P = 15;
 console.assert(TRAIN_P + TEST_P === 100);
-const MAX_TEXT_FEATURES = 2000;
+const MAX_TEXT_FEATURES = 4000;
 const DESCENT_EPOCHS = 500;
 const CONFIDENCE_THRESHOLD = 0.5;
+const USE_BIGRAMS = true;
 
 
-// fixme make these paths work even if not run from training/
 const POS_DIR = './email_data/recruiting';
 const NEG_DIR = './email_data/not_recruiting';
 const CLASSIFIER_DIR = './temp_classifiers';
+
 
 function getMessageTextFromSetItem(item) {
     var filePath;
@@ -56,7 +56,7 @@ function testModel(vocabulary, model, testSet) {
 
     for (var i = 0; i < testSet.length; i++) {
         const messageText = getMessageTextFromSetItem(testSet[i]);
-        const vector = vectorize(messageText, vocabulary);
+        const vector = oneHotvectorize(messageText, vocabulary);
         const prob = model.predict(tf.tensor2d([vector])).dataSync()[0];
         const classifiedRecruiting = prob > CONFIDENCE_THRESHOLD;
         if (classifiedRecruiting && testSet[i].recruiting) {
@@ -91,68 +91,48 @@ function shuffleArray(array) {
     return array;
 }
 
-
-// in train
-// for every doc in train set
-// add all stemmed words and bigrams to a list
-// take certain numbr of them to limit to MAX_FEATURES-- how to choose??
-// this is the vocab. save it
-
-// for embeddings-
-// for every doc in train set
-// add all stemmed words to a set
-// create hash of word: index
-// text vector is vector of word indices
-// add embedding layer
-
 function oneHotvectorize(text, vocabulary) {
     var counts = {};
     for (var i = 0; i < vocabulary.length; i++) {
         counts[vocabulary[i]] = 0;
     }
-    const tokenizedText = (new natural.WordTokenizer()).tokenize(text);
-    const stemmedText = tokenizedText.map(natural.PorterStemmer.stem);
-    for (var i = 0; i < stemmedText.length; i++) {
-        word = stemmedText[i];
-        if (vocabulary.includes(word)) {
-            counts[word] += 1
+    const tokenizedText = tokenizeText(text);
+    for (var i = 0; i < tokenizedText.length; i++) {
+        const token = tokenizedText[i];
+        if (vocabulary.includes(token)) {
+            counts[token] += 1
         }
     }
     const vector = vocabulary.map(word => counts[word]);
     return vector;
 }
 
-function vectorize(text, vocabulary) {
-    const tokenizedText = (new natural.WordTokenizer()).tokenize(text);
-    const stemmedText = tokenizedText.map(natural.PorterStemmer.stem);
-    const vector = [];
-    for (var i = 0; i < stemmedText.length; i++) {
-        word = stemmedText[i];
-        index = vocabulary.indexOf(word);
-        if (index > -1) {
-            vector.push(index)
-        }
+function tokenizeText(text) {
+    const textArray = (new natural.WordTokenizer()).tokenize(text);
+    const stemmedText = textArray.map(natural.PorterStemmer.stem);
+    if (!USE_BIGRAMS) {
+        return stemmedText;
     }
-    return vector;
+    const bigrams = natural.NGrams.bigrams(stemmedText); // array of arrays length 2
+    const bigramTokens = bigrams.map(bigram => bigram.join('$')); // is arbitrary delimeter
+    return stemmedText.concat(bigramTokens);
 }
 
 function buildVocabulary(trainSet) {
-    // return array of size MAX_TEXT_FEATURES of the top seen words
+    // return array of size MAX_TEXT_FEATURES of the top seen words and bigrams
     var vocabOccurrences = {}
     for (var i = 0; i < trainSet.length; i++) {
         const messageText = getMessageTextFromSetItem(trainSet[i]);
-        const tokenizedText = (new natural.WordTokenizer()).tokenize(messageText);
-        const stemmedText = tokenizedText.map(natural.PorterStemmer.stem);
-        // const bigrams = natural.NGrams.bigrams(stemmedText);
-        for (var j = 0; j < stemmedText.length; j++) {
-            word = stemmedText[j]
-            if (word == '0' || parseInt(word)) {
+        const tokenizedText = tokenizeText(messageText);
+        for (var j = 0; j < tokenizedText.length; j++) {
+            const token = tokenizedText[j]
+            if (token == '0' || parseInt(token)) { // could also remove stop words
                 continue;
             }
-            if (!vocabOccurrences.hasOwnProperty(word)) {
-                vocabOccurrences[word] = 0;
+            if (!vocabOccurrences.hasOwnProperty(token)) {
+                vocabOccurrences[token] = 0;
             }
-            vocabOccurrences[word] += 1;
+            vocabOccurrences[token] += 1;
         };
     }
     const topWordsAndCounts = Object.entries(vocabOccurrences).sort((a, b) => b[1] - a[1]).slice(0, MAX_TEXT_FEATURES);
@@ -164,7 +144,7 @@ function docsToVectorsAndLabels(docs, vocabulary) {
     const labels = [];
     for (var i = 0; i < docs.length; i++) {
         const messageText = getMessageTextFromSetItem(docs[i]);
-        const vector = vectorize(messageText, vocabulary);
+        const vector = oneHotvectorize(messageText, vocabulary);
         vectors.push(vector);
         if (docs[i].recruiting) {
             labels.push(1);
@@ -179,25 +159,28 @@ async function trainModel(trainSet, modelNameInfo) {
     const vocabulary = buildVocabulary(trainSet);
     const {vectors, labels} = docsToVectorsAndLabels(trainSet, vocabulary);
 
+    // relatively simple one layer model
+    // units: 1 means we want a single number as an output
+    // inputShape is saying each input is a vector of size vocabulary.length
+    // activation: sigmoid will return a value between 0 and 1
     const model = tf.sequential({
         layers: [
-            // embedding layer turns integer encoded word vectors to word embeddings
-            tf.layers.embedding({inputDim: vocabulary.length, outputDim: 32}),
-            tf.layers.globalAveragePooling1d(), // turns variable length vector into fixed
-            tf.layers.dense({units: 1}) // units: 1 means one number output
+            tf.layers.dense({units: 1, inputShape: [vocabulary.length], activation: 'sigmoid'})
         ]
     });
-
-    // choose adam gradient descent
+    // learning using adam gradient descent
     // binaryCrossentropy is used when we want 0 or 1 classification
-    // metrics don't affect training, just used later for evaluation. binaryAccuracy is easier to read, just shows percentange of transactions are labeled
-    // correctly
-    // cross entropy penalizes being further from label more, but accuracy is just binary
+    // cross entropy penalizes being further from label more
+    // metrics don't affect training, just used later for evaluation. binaryAccuracy is easier to read, just
+    // shows percentange of transactions are labeled correctly
     model.compile({optimizer: 'adam', loss: 'binaryCrossentropy', metrics: 'binaryAccuracy'});
-    // valiodation batch size 32 by default
+    // validation batch size will be 32 by default
+    // run the descent DESCENT_EPOCHS times
     const fittingHistory = await model.fit(tf.tensor2d(vectors), tf.tensor(labels), {epochs: DESCENT_EPOCHS});
     console.log(fittingHistory);
     model.summary();
+
+    // save model and vocab for later loading
     const dir = `${CLASSIFIER_DIR}/tf_adam_${Date.now()}_${modelNameInfo}`;
     await model.save(`file://${dir}`);
     fs.writeFileSync(`${dir}/vocabulary.json`, JSON.stringify(vocabulary));
@@ -238,7 +221,7 @@ if (loadModel) {
 } else {
     var modelNameInfo;
     if (process.argv.length > 2) {
-        // optional add some string to name the model when saved
+        // optional add some identifying string to name the model when saved
         modelNameInfo = process.argv[process.argv.length - 1];
     } else {
         modelNameInfo = '';
