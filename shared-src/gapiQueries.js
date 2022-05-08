@@ -103,10 +103,11 @@ async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs, 
 }
 
 
-async function labelMessages(messageIDs, labelID, authToken) {
+async function labelAndMarkAsUnread(messageIDs, labelID, authToken) {
   const requestBody = {
     ids: messageIDs,
-    addLabelIds: [labelID]
+    addLabelIds: [labelID],
+    removeLabelIds: ['UNREAD']
   };
   const response = await sendPost("messages/batchModify", requestBody, authToken);
   // todo check response
@@ -161,10 +162,9 @@ async function threadHasLabel(threadID, labelName, authToken) {
 }
 
 
-// todo this logs an error in browser
 module.exports = {
   getMessages,
   getOrCreateLabel,
-  labelMessages,
+  labelAndMarkAsUnread,
   threadHasLabel
 };

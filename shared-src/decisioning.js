@@ -83,7 +83,6 @@ function tokenizeText(text) {
     return stemmedText.concat(bigramTokens);
 }
 
-// todo this logs an error in browser
 module.exports = {
     getPlainTextFromMsgPart,
     oneHotVectorize,

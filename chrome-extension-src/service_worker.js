@@ -40,8 +40,8 @@ function findAndLabelMessages(request, sender, responseCallback) {
             const rawMessages = await gapi.getMessages(authToken, null, null, null, true);
             const messageIDsToLabel = await findRecruitingMessages(rawMessages);
             if (messageIDsToLabel.length > 0) {
-                gapi.labelMessages(messageIDsToLabel, labelID, authToken);
-                console.log(`Labeled ${messageIDsToLabel.length} new recruiting messages.`);
+                gapi.labelAndMarkAsUnread(messageIDsToLabel, labelID, authToken);
+                console.log(`Labeled ${messageIDsToLabel.length} new recruiting messages and marked as unread.`);
                 // TODO mark messages as unread
             } else {
                 console.log('Found no new unread recruiting messages this time.');
