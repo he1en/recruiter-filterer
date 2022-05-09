@@ -1,0 +1,1 @@
+This code runs locally in a node.js environment, to download emails and train a model.

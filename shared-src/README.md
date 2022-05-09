@@ -1,0 +1,1 @@
+The code in this directory is used both for the local training using node.js, and in the browser in the chrome extension. To keep things DRY and ensure feature extraction is the exact same in both model training and usage.

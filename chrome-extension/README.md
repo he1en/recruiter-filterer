@@ -1,0 +1,1 @@
+This is essentially a dist directory. Parceled/minified javascript ends up here as the result of build commands. The chrome extension itself uses only files in this folder. See the build commands in the package.json for how contents in this folder will be created.
