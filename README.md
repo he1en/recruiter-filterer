@@ -2,6 +2,8 @@
 
 Chrome extension that filters unsolicited tech recruiter emails by running an ML model whenever you open gmail. Everything runs in your browser, so your email content never leaves your device.
 
+![](demo.gif)
+
 **WIP: the model is still trained on my name and company. More updates coming. I mostly made this for myself and to brush on up on javascript and play around with tensorflow.**
 
 ## Usage - Chrome Extension
