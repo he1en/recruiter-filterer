@@ -86,7 +86,6 @@ async function getMessages(authToken, maxMessages, beforeEpochMs, afterEpochMs, 
   }
   const messagesResponse = await sendGet('messages', params, authToken);
   const messages = messagesResponse.messages;  // these are {id: <string>, threadID: <string>} objects
-  // TODO some logs for if user has too many unread messages:
   if (unreadOnly) {
     console.log(`Found ${messages.length} unread messages.`);
     if (messagesResponse.resultSizeEstimate > 100) {

@@ -23,7 +23,8 @@ const decisioning = require('../shared-src/decisioning.js');
 const gapi = require('../shared-src/gapiQueries.js');
 const vocabulary = require('./vocabulary.json');
 
-const LABELNAME = "Recruiting";
+const LABEL_NAME = "Recruiting";
+const FALSE_POSITIVE_LABEL_NAME = "NotUnsolicitedRecruiting";
 
 
 function findAndLabelMessages(request, sender, responseCallback) {
@@ -33,12 +34,12 @@ function findAndLabelMessages(request, sender, responseCallback) {
         async function (authToken) {
 
             // fixme do this on install instead
-            console.log(`Checking for label ${LABELNAME} and creating if it does not exist.`)
-            const labelID = await gapi.getOrCreateLabel(LABELNAME, authToken);
+            console.log(`Checking for label ${LABEL_NAME} and creating if it does not exist.`)
+            const labelID = await gapi.getOrCreateLabel(LABEL_NAME, authToken);
 
             // fixme rework for better concurrency of message processing
             const rawMessages = await gapi.getMessages(authToken, null, null, null, true);
-            const messageIDsToLabel = await findRecruitingMessages(rawMessages);
+            const messageIDsToLabel = await findRecruitingMessages(rawMessages, authToken);
             if (messageIDsToLabel.length > 0) {
                 gapi.labelAndMarkAsUnread(messageIDsToLabel, labelID, authToken);
                 console.log(`Labeled ${messageIDsToLabel.length} new recruiting messages and marked as unread.`);
@@ -58,14 +59,18 @@ async function loadModel() {
     return await tf.loadLayersModel('./model/model.json');
 }
 
-async function findRecruitingMessages(messageJSONs) {
+async function findRecruitingMessages(messageJSONs, authToken) {
     model = await loadModel();
     const idsToReturn = [];
     const predictions = decisioning.predictRecruiting(vocabulary, model, messageJSONs);
     for (var i = 0; i < messageJSONs.length; i++) {
         if (predictions[i]) {
-          idsToReturn.push(messageJSONs[i].id)
-          console.log(`Found recruiting message (snippet = ${messageJSONs[i].snippet}).`);
+            if (gapi.threadHasLabel(messageJSONs[i].threadId, FALSE_POSITIVE_LABEL_NAME, authToken)) {
+                console.log(`Skipping false positive message with id ${messageJSONs[i].id}`);
+            } else {
+                idsToReturn.push(messageJSONs[i].id)
+                console.log(`Found recruiting message (snippet = ${messageJSONs[i].snippet}).`);
+            }
         }
     }
     return idsToReturn;

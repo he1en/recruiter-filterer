@@ -11,3 +11,7 @@ Use my model and add this code as a chrome extension to filter recruiters from y
 
 ## Usage - Train your own model
 Use node.js to download your emails, train a simple gradient descent model to classify recruiting vs not, and use your own model in your chrome extension. TODO
+
+
+## Developer notes
+Built using node version 18.0.0. I've noticed some build issues using lower versions.
