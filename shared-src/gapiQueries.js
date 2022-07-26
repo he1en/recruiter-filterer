@@ -140,7 +140,7 @@ async function getOrCreateLabel(labelName, authToken) {
   return createLabel(labelName, authToken);
 }
 
-async function threadHasLabel(threadID, labelName, authToken) {
+async function threadHasLabel(threadID, labelID, authToken) {
   /**
    *  The Gmail UI only lets you apply a label to a thread as opposed to a single message,
    *  and sometimes it will only attach the labelID to the FIRST message on the thread. So to know
@@ -153,7 +153,7 @@ async function threadHasLabel(threadID, labelName, authToken) {
   const response = await sendGet(`threads/${threadID}`, {}, authToken);
   const messages = response.messages;
   for (var i = 0; i < messages.length; i++) {
-    if (messages[i].labelIds.includes(labelName)) {
+    if (messages[i].labelIds.includes(labelID)) {
       return true;
     }
   }

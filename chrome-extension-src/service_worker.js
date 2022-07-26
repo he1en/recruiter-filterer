@@ -24,7 +24,7 @@ const gapi = require('../shared-src/gapiQueries.js');
 const vocabulary = require('./vocabulary.json');
 
 const LABEL_NAME = "Recruiting";
-const FALSE_POSITIVE_LABEL_NAME = "NotUnsolicitedRecruiting";
+const FALSE_POSITIVE_LABEL_ID = "Label_79665131364038541";  // replace with your own
 
 
 function findAndLabelMessages(request, sender, responseCallback) {
@@ -65,8 +65,9 @@ async function findRecruitingMessages(messageJSONs, authToken) {
     const predictions = decisioning.predictRecruiting(vocabulary, model, messageJSONs);
     for (var i = 0; i < messageJSONs.length; i++) {
         if (predictions[i]) {
-            if (gapi.threadHasLabel(messageJSONs[i].threadId, FALSE_POSITIVE_LABEL_NAME, authToken)) {
-                console.log(`Skipping false positive message with id ${messageJSONs[i].id}`);
+            const false_positive = await gapi.threadHasLabel(messageJSONs[i].threadId, FALSE_POSITIVE_LABEL_ID, authToken);
+            if (false_positive) {
+                console.log(`Skipping false positive message (snippet = ${messageJSONs[i].snippet}).`);
             } else {
                 idsToReturn.push(messageJSONs[i].id)
                 console.log(`Found recruiting message (snippet = ${messageJSONs[i].snippet}).`);
